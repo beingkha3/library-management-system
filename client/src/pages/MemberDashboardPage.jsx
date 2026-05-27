@@ -42,8 +42,6 @@ export const MemberDashboardPage = () => {
     return <ErrorState message={error} />;
   }
 
-  const urgentBorrows = data.activeBorrows.filter((borrow) => borrow.status === 'overdue').slice(0, 3);
-
   return (
     <div className="space-y-5">
       <PageHeader
@@ -68,26 +66,8 @@ export const MemberDashboardPage = () => {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <SectionCard title="Due soon" description="Books that need attention soon and any current fine balance.">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">Due soon</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{data.dueSoon.length}</p>
-              <p className="mt-2 text-sm text-slate-500">Books that are closest to the due date.</p>
-            </div>
-            <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm text-amber-700">Overdue books</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{urgentBorrows.length}</p>
-              <p className="mt-2 text-sm text-amber-700">Books that are already overdue.</p>
-            </div>
-            <div className="rounded-[22px] border border-blue-200 bg-blue-50 p-4">
-              <p className="text-sm text-blue-700">Outstanding fines</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{currency(data.summary.totalFines)}</p>
-              <p className="mt-2 text-sm text-blue-700">Fine balance that can be paid online.</p>
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-3">
+        <SectionCard title="Due soon" description="Books that need attention or are already overdue.">
+          <div className="space-y-3">
             {data.dueSoon.length ? (
               data.dueSoon.map((borrow) => (
                 <div key={borrow._id} className="rounded-[22px] border border-slate-200 px-4 py-4">

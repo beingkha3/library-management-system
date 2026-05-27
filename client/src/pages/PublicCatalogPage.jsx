@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { bookApi, borrowApi, reservationApi } from '../api/services';
 import { BookCard } from '../components/BookCard';
-import { Breadcrumbs } from '../components/Breadcrumbs';
 import { BackendUnavailableState, EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import { Field, PrimaryButton, SecondaryButton, inputClassName } from '../components/FormFields';
 import { LogoLockup } from '../components/LogoLockup';
@@ -321,26 +320,14 @@ export const PublicCatalogPage = ({ asHome = false }) => {
 
         {!asHome ? (
           <>
-            <Breadcrumbs items={[{ label: 'Dashboard', to: dashboardPath }, { label: 'Browse catalog' }]} />
-
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Search the library catalog</h1>
-              <p className="text-sm leading-7 text-slate-500">Find books by title, author, genre, or ISBN.</p>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  className={`${inputClassName} h-14 pl-11 text-base`}
-                  placeholder="Search by title, author, genre, or ISBN"
-                />
-              </div>
-              <div className="hidden lg:block">
-                <PrimaryButton type="button" className="h-14 px-6">Search</PrimaryButton>
-              </div>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className={`${inputClassName} h-12 pl-11`}
+                placeholder="Search by title, author, genre, or ISBN"
+              />
             </div>
 
             <div className="flex flex-wrap gap-2">

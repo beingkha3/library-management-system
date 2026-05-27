@@ -167,37 +167,39 @@ export const StaffLoansPage = () => {
         </div>
 
         <SectionCard title="Current circulation" description="Loan records with due-date context, borrower visibility, and return actions.">
-          <DataTable
-            columns={[
-              {
-                key: 'book',
-                label: 'Book',
-                render: (row) => (
-                  <div>
-                    <p className="font-medium text-slate-900">{row.book?.title}</p>
-                    <p className="text-xs text-slate-500">{row.user?.name}</p>
-                  </div>
-                )
-              },
-              { key: 'borrowedAt', label: 'Borrowed', render: (row) => date(row.borrowedAt) },
-              { key: 'dueAt', label: 'Due status', render: (row) => `${date(row.dueAt)} (${relativeLoanState(row.dueAt)})` },
-              { key: 'status', label: 'Status', render: (row) => <StatusPill value={row.status} /> },
-              {
-                key: 'actions',
-                label: 'Actions',
-                render: (row) =>
-                  row.status === 'returned' ? (
-                    <span className="text-sm text-slate-400">Complete</span>
-                  ) : (
-                    <SecondaryButton type="button" onClick={() => handleReturn(row._id)}>
-                      Process return
-                    </SecondaryButton>
+          <div className="max-h-[38rem] overflow-y-auto pr-1">
+            <DataTable
+              columns={[
+                {
+                  key: 'book',
+                  label: 'Book',
+                  render: (row) => (
+                    <div>
+                      <p className="font-medium text-slate-900">{row.book?.title}</p>
+                      <p className="text-xs text-slate-500">{row.user?.name}</p>
+                    </div>
                   )
-              }
-            ]}
-            rows={borrowsQuery.data}
-            emptyMessage="No loan records are available yet."
-          />
+                },
+                { key: 'borrowedAt', label: 'Borrowed', render: (row) => date(row.borrowedAt) },
+                { key: 'dueAt', label: 'Due status', render: (row) => `${date(row.dueAt)} (${relativeLoanState(row.dueAt)})` },
+                { key: 'status', label: 'Status', render: (row) => <StatusPill value={row.status} /> },
+                {
+                  key: 'actions',
+                  label: 'Actions',
+                  render: (row) =>
+                    row.status === 'returned' ? (
+                      <span className="text-sm text-slate-400">Complete</span>
+                    ) : (
+                      <SecondaryButton type="button" onClick={() => handleReturn(row._id)}>
+                        Process return
+                      </SecondaryButton>
+                    )
+                }
+              ]}
+              rows={borrowsQuery.data}
+              emptyMessage="No loan records are available yet."
+            />
+          </div>
         </SectionCard>
       </div>
     </div>

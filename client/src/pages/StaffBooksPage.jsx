@@ -15,14 +15,54 @@ const initialBook = {
   isbn: '',
   category: '',
   description: '',
+  publisher: '',
+  language: 'English',
+  edition: '',
+  publishedYear: '',
+  pageCount: '',
   shelfLocation: '',
   totalCopies: 1,
   availableCopies: 1,
   featured: false
 };
 
+const toBookForm = (book) => ({
+  title: book.title || '',
+  authors: book.authors?.join(', ') || '',
+  isbn: book.isbn || '',
+  category: book.category || '',
+  description: book.description || '',
+  publisher: book.publisher || '',
+  language: book.language || 'English',
+  edition: book.edition || '',
+  publishedYear: book.publishedYear || '',
+  pageCount: book.pageCount || '',
+  shelfLocation: book.shelfLocation || '',
+  totalCopies: book.totalCopies ?? 1,
+  availableCopies: book.availableCopies ?? 0,
+  featured: Boolean(book.featured)
+});
+
+const toBookPayload = (form) => ({
+  title: form.title,
+  authors: form.authors.split(',').map((item) => item.trim()).filter(Boolean),
+  isbn: form.isbn,
+  category: form.category,
+  description: form.description,
+  publisher: form.publisher,
+  language: form.language,
+  edition: form.edition,
+  publishedYear: form.publishedYear === '' ? undefined : Number(form.publishedYear),
+  pageCount: form.pageCount === '' ? undefined : Number(form.pageCount),
+  shelfLocation: form.shelfLocation,
+  totalCopies: Number(form.totalCopies),
+  availableCopies: Number(form.availableCopies),
+  featured: Boolean(form.featured)
+});
+
 export const StaffBooksPage = () => {
   const [form, setForm] = useState(initialBook);
+  const [editForm, setEditForm] = useState(null);
   const [message, setMessage] = useState('');
   const { data, loading, error, setData } = useAsyncData(() => bookApi.list(), []);
 
@@ -39,14 +79,32 @@ export const StaffBooksPage = () => {
 
     try {
       await bookApi.create({
-        ...form,
-        authors: form.authors.split(',').map((item) => item.trim()).filter(Boolean),
-        totalCopies: Number(form.totalCopies),
-        availableCopies: Number(form.availableCopies),
-        featured: Boolean(form.featured)
+        ...toBookPayload(form)
       });
       setMessage('Book created successfully.');
       setForm(initialBook);
+      setData(await bookApi.list());
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+
+  const handleEditSelect = (book) => {
+    setEditForm({ _id: book._id, ...toBookForm(book) });
+    setMessage(`Editing inventory for ${book.title}.`);
+  };
+
+  const handleEditSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!editForm?._id) {
+      return;
+    }
+
+    try {
+      await bookApi.update(editForm._id, toBookPayload(editForm));
+      setMessage('Book inventory updated successfully.');
+      setEditForm(null);
       setData(await bookApi.list());
     } catch (err) {
       setMessage(err.message);
@@ -74,10 +132,10 @@ export const StaffBooksPage = () => {
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Catalog operations"
-        title="Collection management for title creation, stock visibility, and archive control"
-        description="The catalog surface is now table-driven and operationally useful instead of card-heavy. Create titles on the left and monitor live inventory on the right."
-        metadata={['Inventory aware', 'Title-level control', 'Staff-facing maintenance']}
+        eyebrow="Catalog"
+        title="Manage books and copy counts"
+        description="Add titles, update shelf details, adjust copy counts, and remove books from the active catalog."
+        metadata={['Add books', 'Update inventory', 'Archive titles']}
       />
 
       {message ? <p className="rounded-2xl bg-academy-100 px-4 py-3 text-sm text-academy-700">{message}</p> : null}
@@ -101,8 +159,9 @@ export const StaffBooksPage = () => {
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
-        <SectionCard title="Create a title" description="Add a new book record to the live academic collection.">
+      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="space-y-5">
+        <SectionCard title="Add a book" description="Create a new book record in the catalog.">
           <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
             <Field label="Title">
               <input className={inputClassName} value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required />
@@ -116,6 +175,12 @@ export const StaffBooksPage = () => {
             <Field label="Category">
               <input className={inputClassName} value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} required />
             </Field>
+            <Field label="Publisher">
+              <input className={inputClassName} value={form.publisher} onChange={(event) => setForm((current) => ({ ...current, publisher: event.target.value }))} />
+            </Field>
+            <Field label="Language">
+              <input className={inputClassName} value={form.language} onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))} />
+            </Field>
             <Field label="Shelf location">
               <input className={inputClassName} value={form.shelfLocation} onChange={(event) => setForm((current) => ({ ...current, shelfLocation: event.target.value }))} />
             </Field>
@@ -128,6 +193,10 @@ export const StaffBooksPage = () => {
             <Field label="Description">
               <textarea className={`${inputClassName} min-h-28`} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
             </Field>
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+              <input id="featured-book" type="checkbox" checked={form.featured} onChange={(event) => setForm((current) => ({ ...current, featured: event.target.checked }))} />
+              <label htmlFor="featured-book" className="text-sm font-medium text-slate-700">Feature this title</label>
+            </div>
             <div className="md:col-span-2 flex gap-3">
               <PrimaryButton type="submit">Create title</PrimaryButton>
               <SecondaryButton type="button" onClick={() => setForm(initialBook)}>Reset</SecondaryButton>
@@ -135,7 +204,58 @@ export const StaffBooksPage = () => {
           </form>
         </SectionCard>
 
-        <SectionCard title="Live catalog table" description="Inventory-focused view of the active collection.">
+        <SectionCard
+          title="Edit inventory"
+          description={editForm ? 'Update title details, shelf placement, and copy counts.' : 'Choose a book from the table to edit its inventory.'}
+        >
+          {editForm ? (
+            <form onSubmit={handleEditSubmit} className="grid gap-4 md:grid-cols-2">
+              <Field label="Title">
+                <input className={inputClassName} value={editForm.title} onChange={(event) => setEditForm((current) => ({ ...current, title: event.target.value }))} required />
+              </Field>
+              <Field label="ISBN">
+                <input className={inputClassName} value={editForm.isbn} onChange={(event) => setEditForm((current) => ({ ...current, isbn: event.target.value }))} required />
+              </Field>
+              <Field label="Authors" hint="Comma separated">
+                <input className={inputClassName} value={editForm.authors} onChange={(event) => setEditForm((current) => ({ ...current, authors: event.target.value }))} required />
+              </Field>
+              <Field label="Category">
+                <input className={inputClassName} value={editForm.category} onChange={(event) => setEditForm((current) => ({ ...current, category: event.target.value }))} required />
+              </Field>
+              <Field label="Shelf location">
+                <input className={inputClassName} value={editForm.shelfLocation} onChange={(event) => setEditForm((current) => ({ ...current, shelfLocation: event.target.value }))} />
+              </Field>
+              <Field label="Publisher">
+                <input className={inputClassName} value={editForm.publisher} onChange={(event) => setEditForm((current) => ({ ...current, publisher: event.target.value }))} />
+              </Field>
+              <Field label="Total copies">
+                <input className={inputClassName} type="number" min="1" value={editForm.totalCopies} onChange={(event) => setEditForm((current) => ({ ...current, totalCopies: event.target.value }))} required />
+              </Field>
+              <Field label="Available copies">
+                <input className={inputClassName} type="number" min="0" value={editForm.availableCopies} onChange={(event) => setEditForm((current) => ({ ...current, availableCopies: event.target.value }))} required />
+              </Field>
+              <Field label="Description">
+                <textarea className={`${inputClassName} min-h-24`} value={editForm.description} onChange={(event) => setEditForm((current) => ({ ...current, description: event.target.value }))} />
+              </Field>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+                  <input id="edit-featured-book" type="checkbox" checked={editForm.featured} onChange={(event) => setEditForm((current) => ({ ...current, featured: event.target.checked }))} />
+                  <label htmlFor="edit-featured-book" className="text-sm font-medium text-slate-700">Feature this title</label>
+                </div>
+                <p className="text-xs leading-5 text-slate-500">The backend prevents available copies from exceeding safe inventory after active loans and ready reservations.</p>
+              </div>
+              <div className="md:col-span-2 flex flex-wrap gap-3">
+                <PrimaryButton type="submit">Save changes</PrimaryButton>
+                <SecondaryButton type="button" onClick={() => setEditForm(null)}>Cancel</SecondaryButton>
+              </div>
+            </form>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">Select Edit in the catalog table to manage copies, shelf location, and title metadata.</p>
+          )}
+        </SectionCard>
+        </div>
+
+        <SectionCard title="Active catalog" description="Current books available to members and staff.">
           <DataTable
             columns={[
               {
@@ -172,9 +292,14 @@ export const StaffBooksPage = () => {
                 key: 'actions',
                 label: 'Actions',
                 render: (row) => (
-                  <SecondaryButton type="button" onClick={() => handleArchive(row._id)}>
-                    Archive
-                  </SecondaryButton>
+                  <div className="flex flex-wrap gap-2">
+                    <SecondaryButton type="button" className="px-3 py-2" onClick={() => handleEditSelect(row)}>
+                      Edit
+                    </SecondaryButton>
+                    <SecondaryButton type="button" className="px-3 py-2" onClick={() => handleArchive(row._id)}>
+                      Archive
+                    </SecondaryButton>
+                  </div>
                 )
               }
             ]}

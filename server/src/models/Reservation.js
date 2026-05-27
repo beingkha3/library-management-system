@@ -40,5 +40,17 @@ const reservationSchema = new mongoose.Schema(
 
 reservationSchema.index({ book: 1, status: 1, queuePosition: 1 });
 reservationSchema.index({ user: 1, status: 1 });
+reservationSchema.index(
+  { user: 1, book: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      $or: [
+        { status: RESERVATION_STATUSES.QUEUED },
+        { status: RESERVATION_STATUSES.READY }
+      ]
+    }
+  }
+);
 
 export const Reservation = mongoose.model('Reservation', reservationSchema);

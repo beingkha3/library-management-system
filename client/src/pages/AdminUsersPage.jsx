@@ -4,17 +4,13 @@ import { useMemo, useState } from 'react';
 import { userApi } from '../api/services';
 import { DataTable } from '../components/DataTable';
 import { PageHeader } from '../components/PageHeader';
-import { PrimaryButton, SecondaryButton } from '../components/FormFields';
+import { SecondaryButton, inputClassName } from '../components/FormFields';
 import { SectionCard } from '../components/SectionCard';
 import { StatusPill } from '../components/StatusPill';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import { useAsyncData } from '../hooks/useAsyncData';
 
-const nextRoleMap = {
-  member: 'librarian',
-  librarian: 'admin',
-  admin: 'member'
-};
+const roleOptions = ['member', 'librarian', 'admin'];
 
 export const AdminUsersPage = () => {
   const [message, setMessage] = useState('');
@@ -32,9 +28,12 @@ export const AdminUsersPage = () => {
 
   const refreshUsers = async () => setData(await userApi.list());
 
-  const handlePromote = async (row) => {
+  const handleRoleChange = async (row, nextRole) => {
+    if (row.role === nextRole) {
+      return;
+    }
+
     try {
-      const nextRole = nextRoleMap[row.role];
       await userApi.update(row._id, { role: nextRole });
       setMessage(`Role updated to ${nextRole}.`);
       await refreshUsers();
@@ -140,9 +139,18 @@ export const AdminUsersPage = () => {
                 label: 'Actions',
                 render: (row) => (
                   <div className="flex flex-wrap gap-2">
-                    <PrimaryButton type="button" onClick={() => handlePromote(row)}>
-                      Change role
-                    </PrimaryButton>
+                    <select
+                      aria-label={`Change role for ${row.name}`}
+                      className={`${inputClassName} min-w-36 py-2 text-sm capitalize`}
+                      value={row.role}
+                      onChange={(event) => handleRoleChange(row, event.target.value)}
+                    >
+                      {roleOptions.map((role) => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                    </select>
                     <SecondaryButton type="button" onClick={() => handleStatusToggle(row)}>
                       {row.status === 'active' ? 'Suspend' : 'Reactivate'}
                     </SecondaryButton>

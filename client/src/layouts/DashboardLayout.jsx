@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../hooks/useAuth';
 import { adminNav, memberNav, staffNav } from '../utils/navigation';
+import { Breadcrumbs } from '../components/Breadcrumbs';
 import { SidebarNav } from '../components/SidebarNav';
 import { Topbar } from '../components/Topbar';
 
@@ -37,6 +38,71 @@ const quickActionsByRole = {
     { label: 'Manage users', onClickPath: '/admin/users' },
     { label: 'Review settings', onClickPath: '/admin/settings' }
   ]
+};
+
+const rootBreadcrumbs = {
+  app: { label: 'Dashboard', to: '/app' },
+  staff: { label: 'Staff Dashboard', to: '/staff' },
+  admin: { label: 'Admin Dashboard', to: '/admin' }
+};
+
+const breadcrumbLabels = {
+  catalog: 'Catalog',
+  'my-loans': 'My Loans',
+  'my-reservations': 'Reservations',
+  'my-fines': 'Fines & Payments',
+  profile: 'Profile',
+  notifications: 'Notifications',
+  books: 'Book Operations',
+  members: 'Members',
+  loans: 'Loans',
+  reservations: 'Reservations',
+  fines: 'Fines',
+  reports: 'Reports',
+  users: 'Users',
+  settings: 'Settings',
+  audit: 'Audit & Email'
+};
+
+const formatSegment = (segment, previousSegment) => {
+  if (previousSegment === 'catalog') {
+    return 'Book details';
+  }
+
+  if (breadcrumbLabels[segment]) {
+    return breadcrumbLabels[segment];
+  }
+
+  return segment
+    .split('-')
+    .map((item) => `${item.charAt(0).toUpperCase()}${item.slice(1)}`)
+    .join(' ');
+};
+
+const buildBreadcrumbItems = (pathname) => {
+  const segments = pathname.split('/').filter(Boolean);
+  const [rootSegment, ...childSegments] = segments;
+  const root = rootBreadcrumbs[rootSegment] || rootBreadcrumbs.app;
+
+  if (!childSegments.length) {
+    return [{ label: root.label }];
+  }
+
+  const items = [{ ...root }];
+  let currentPath = `/${rootSegment}`;
+
+  childSegments.forEach((segment, index) => {
+    const previousSegment = childSegments[index - 1] || rootSegment;
+    const isCurrent = index === childSegments.length - 1;
+
+    currentPath = `${currentPath}/${segment}`;
+    items.push({
+      label: formatSegment(segment, previousSegment),
+      to: isCurrent ? undefined : currentPath
+    });
+  });
+
+  return items;
 };
 
 export const DashboardLayout = ({ requiredRoles }) => {
@@ -74,6 +140,7 @@ export const DashboardLayout = ({ requiredRoles }) => {
     label: action.label,
     onClick: () => navigate(action.onClickPath)
   }));
+  const breadcrumbItems = buildBreadcrumbItems(location.pathname);
 
   return (
     <div className="min-h-screen bg-slate-100 lg:grid lg:grid-cols-[292px_1fr]">
@@ -100,10 +167,13 @@ export const DashboardLayout = ({ requiredRoles }) => {
           }}
         />
         <div className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
-          <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Role: {user.role}</span>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Signed in</span>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Library account</span>
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-3">
+            <Breadcrumbs items={breadcrumbItems} />
+            <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Role: {user.role}</span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Signed in</span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Library account</span>
+            </div>
           </div>
         </div>
         <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6">

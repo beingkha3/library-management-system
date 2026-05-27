@@ -11,7 +11,7 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 coverage/
-
+razorpay_test_api_keys*.csv
 # Local AI/tooling metadata
 .claude/
 AGENTS.md

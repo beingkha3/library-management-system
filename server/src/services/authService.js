@@ -1,8 +1,13 @@
+import crypto from 'crypto';
+
+import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { AppError } from '../utils/appError.js';
 import { ROLES, USER_STATUSES } from '../utils/constants.js';
 import { signToken } from '../utils/token.js';
 import { sendTemplateEmail } from './notificationService.js';
+
+const RESET_TOKEN_TTL_MINUTES = 60;
 
 const sanitizeUser = (user) => ({
   _id: user._id,
@@ -17,6 +22,18 @@ const sanitizeUser = (user) => ({
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
   lastLoginAt: user.lastLoginAt
+});
+
+const hashResetToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+const getPrimaryClientUrl = () => {
+  const clientUrl = Array.isArray(env.clientUrl) ? env.clientUrl[0] : env.clientUrl;
+  return clientUrl.replace(/\/$/, '');
+};
+
+const authPayload = (user) => ({
+  user: sanitizeUser(user),
+  token: signToken(user)
 });
 
 export const registerUser = async (payload) => {
@@ -48,10 +65,7 @@ export const registerUser = async (payload) => {
     type: 'welcome'
   });
 
-  return {
-    user: sanitizeUser(user),
-    token: signToken(user)
-  };
+  return authPayload(user);
 };
 
 export const loginUser = async ({ email, password }) => {
@@ -74,10 +88,7 @@ export const loginUser = async ({ email, password }) => {
   user.lastLoginAt = new Date();
   await user.save();
 
-  return {
-    user: sanitizeUser(user),
-    token: signToken(user)
-  };
+  return authPayload(user);
 };
 
 export const getProfile = async (userId) => {
@@ -88,6 +99,91 @@ export const getProfile = async (userId) => {
   }
 
   return sanitizeUser(user);
+};
+
+export const requestPasswordReset = async ({ email }) => {
+  const user = await User.findOne({ email: email.toLowerCase() });
+
+  if (!user || user.status !== USER_STATUSES.ACTIVE) {
+    return { queued: true };
+  }
+
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  user.passwordResetTokenHash = hashResetToken(resetToken);
+  user.passwordResetExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MINUTES * 60 * 1000);
+  await user.save();
+
+  const resetUrl = `${getPrimaryClientUrl()}/reset-password/${resetToken}`;
+
+  await sendTemplateEmail({
+    user,
+    subject: 'Reset your library account password',
+    preheader: 'Use this link to choose a new password.',
+    bodyLines: [
+      `Hi ${user.name},`,
+      `Use this link to reset your password: ${resetUrl}`,
+      `This link expires in ${RESET_TOKEN_TTL_MINUTES} minutes. If you did not request it, you can ignore this email.`
+    ],
+    templateKey: 'password-reset',
+    type: 'password_reset'
+  });
+
+  return { queued: true };
+};
+
+export const resetPassword = async ({ token, password }) => {
+  const user = await User.findOneAndUpdate(
+    {
+      passwordResetTokenHash: hashResetToken(token),
+      passwordResetExpiresAt: { $gt: new Date() },
+      status: USER_STATUSES.ACTIVE
+    },
+    {
+      $unset: {
+        passwordResetTokenHash: '',
+        passwordResetExpiresAt: ''
+      },
+      $inc: { tokenVersion: 1 },
+      $set: { passwordChangedAt: new Date() }
+    },
+    { new: true }
+  );
+
+  if (!user) {
+    throw new AppError('Password reset link is invalid or has expired', 400);
+  }
+
+  user.password = password;
+  await user.save();
+
+  return authPayload(user);
+};
+
+export const changePassword = async ({ userId, currentPassword, newPassword }) => {
+  const user = await User.findById(userId).select('+password');
+
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  const isPasswordValid = await user.comparePassword(currentPassword);
+
+  if (!isPasswordValid) {
+    throw new AppError('Current password is incorrect', 401);
+  }
+
+  if (await user.comparePassword(newPassword)) {
+    throw new AppError('New password must be different from the current password', 400);
+  }
+
+  user.password = newPassword;
+  user.passwordChangedAt = new Date();
+  user.passwordResetTokenHash = undefined;
+  user.passwordResetExpiresAt = undefined;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  await user.save();
+
+  return authPayload(user);
 };
 
 export const listUsers = async () => {

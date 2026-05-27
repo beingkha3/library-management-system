@@ -1,5 +1,3 @@
-import mongoose from 'mongoose';
-
 import { Book } from '../models/Book.js';
 import { Borrow } from '../models/Borrow.js';
 import { Reservation } from '../models/Reservation.js';
@@ -9,8 +7,14 @@ import { BORROW_STATUSES, RESERVATION_STATUSES, ROLES, USER_STATUSES } from '../
 import { addDays, calculateDaysOverdue } from '../utils/dateUtils.js';
 import { calculateOverdueFineAmount, ensureFineForBorrow, recomputeUserFineBalance } from './fineService.js';
 import { sendTemplateEmail } from './notificationService.js';
-import { promoteNextReservation } from './reservationService.js';
+import { expireReadyReservations, promoteNextReservation } from './reservationService.js';
 import { getSettings } from './settingService.js';
+
+const OPEN_BORROW_STATUSES = [
+  BORROW_STATUSES.ACTIVE,
+  BORROW_STATUSES.OVERDUE,
+  BORROW_STATUSES.LOST
+];
 
 const updateBorrowStatus = (borrow) => {
   if (
@@ -56,131 +60,142 @@ export const listBorrows = async ({ user, query = {} }) => {
 
 export const issueBook = async ({ actor, userId, bookId }) => {
   const settings = await getSettings();
-  const hasReplicaSet = Array.isArray(mongoose.connection?.client?.topology?.description?.servers)
-    ? true
-    : mongoose.connection?.readyState === 1 && mongoose.connection?.client != null;
+  await expireReadyReservations({ bookId });
+  await promoteNextReservation(bookId, { skipExpiry: true });
 
-  const executeIssue = async (session = null) => {
-    const useSession = (query) => (session ? query.session(session) : query);
-    const book = await useSession(Book.findById(bookId));
-    const targetUser = await useSession(User.findById(userId));
+  const book = await Book.findById(bookId);
+  const targetUser = await User.findById(userId);
 
-    if (!book) {
-      throw new AppError('Book not found', 404);
+  if (!book) {
+    throw new AppError('Book not found', 404);
+  }
+
+  if (!targetUser) {
+    throw new AppError('Target user not found', 404);
+  }
+
+  if (targetUser.status !== USER_STATUSES.ACTIVE) {
+    throw new AppError('This user account is suspended', 403);
+  }
+
+  if (targetUser.fineBalance > settings.fineThreshold) {
+    throw new AppError('Outstanding fines exceed the allowed borrowing threshold', 400);
+  }
+
+  if (actor.role === ROLES.MEMBER) {
+    if (!settings.allowSelfIssue) {
+      throw new AppError('Self-issue is disabled. Please contact library staff.', 403);
     }
 
-    if (!targetUser) {
-      throw new AppError('Target user not found', 404);
+    if (actor._id.toString() !== targetUser._id.toString()) {
+      throw new AppError('Members can only issue books for themselves', 403);
     }
+  }
 
-    if (targetUser.status !== USER_STATUSES.ACTIVE) {
-      throw new AppError('This user account is suspended', 403);
-    }
+  const duplicateBorrow = await Borrow.findOne({
+    user: userId,
+    book: bookId,
+    status: { $in: OPEN_BORROW_STATUSES }
+  });
 
-    if (targetUser.fineBalance > settings.fineThreshold) {
-      throw new AppError('Outstanding fines exceed the allowed borrowing threshold', 400);
-    }
+  if (duplicateBorrow) {
+    throw new AppError('This user already has an active loan for this book', 409);
+  }
 
-    if (actor.role === ROLES.MEMBER) {
-      if (!settings.allowSelfIssue) {
-        throw new AppError('Self-issue is disabled. Please contact library staff.', 403);
+  const activeReservation = await Reservation.findOne({
+    user: userId,
+    book: bookId,
+    status: RESERVATION_STATUSES.READY
+  });
+
+  const activeBorrowCount = await Borrow.countDocuments({
+    user: userId,
+    status: { $in: OPEN_BORROW_STATUSES }
+  });
+
+  if (activeBorrowCount >= settings.maxActiveBorrows) {
+    throw new AppError('Borrow limit reached for this user', 400);
+  }
+
+  const queuedReservation = await Reservation.findOne({
+    book: bookId,
+    status: RESERVATION_STATUSES.QUEUED
+  });
+
+  if (!activeReservation && queuedReservation) {
+    throw new AppError('This title has pending reservations and cannot be issued outside the queue', 400);
+  }
+
+  let decrementedAvailableCopy = false;
+  let createdBorrow;
+
+  try {
+    if (!activeReservation) {
+      const updatedBook = await Book.findOneAndUpdate(
+        { _id: bookId, availableCopies: { $gt: 0 } },
+        { $inc: { availableCopies: -1 } },
+        { new: true }
+      );
+
+      if (!updatedBook) {
+        throw new AppError('No copies are currently available', 400);
       }
 
-      if (actor._id.toString() !== targetUser._id.toString()) {
-        throw new AppError('Members can only issue books for themselves', 403);
-      }
+      decrementedAvailableCopy = true;
     }
 
-    const activeReservation = await useSession(
-      Reservation.findOne({
+    try {
+      createdBorrow = await Borrow.create({
         user: userId,
         book: bookId,
-        status: RESERVATION_STATUSES.READY
-      })
-    );
+        issuedBy: actor._id,
+        borrowedAt: new Date(),
+        dueAt: addDays(new Date(), settings.loanDays),
+        status: BORROW_STATUSES.ACTIVE
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        throw new AppError('This user already has an active loan for this book', 409);
+      }
 
-    if (!activeReservation && book.availableCopies <= 0) {
-      throw new AppError('No copies are currently available', 400);
+      throw error;
     }
-
-    const activeBorrowCount = await useSession(
-      Borrow.countDocuments({
-        user: userId,
-        status: { $in: [BORROW_STATUSES.ACTIVE, BORROW_STATUSES.OVERDUE] }
-      })
-    );
-
-    if (activeBorrowCount >= settings.maxActiveBorrows) {
-      throw new AppError('Borrow limit reached for this user', 400);
-    }
-
-    if (!activeReservation) {
-      book.availableCopies -= 1;
-      await book.save(session ? { session } : undefined);
-    }
-
-    const createdBorrow = await Borrow.create(
-      [
-        {
-          user: userId,
-          book: bookId,
-          issuedBy: actor._id,
-          borrowedAt: new Date(),
-          dueAt: addDays(new Date(), settings.loanDays),
-          status: BORROW_STATUSES.ACTIVE
-        }
-      ],
-      session ? { session } : undefined
-    );
 
     if (activeReservation) {
       activeReservation.status = RESERVATION_STATUSES.FULFILLED;
       activeReservation.fulfilledAt = new Date();
-      await activeReservation.save(session ? { session } : undefined);
+      await activeReservation.save();
 
-      if (book.reservedCopies > 0) {
-        book.reservedCopies -= 1;
-        await book.save(session ? { session } : undefined);
+      const reservationBook = await Book.findById(bookId);
+      if (reservationBook?.reservedCopies > 0) {
+        reservationBook.reservedCopies -= 1;
+        await reservationBook.save();
       }
     }
-
-    return createdBorrow;
-  };
-
-  const session = hasReplicaSet ? await mongoose.startSession() : null;
-
-  try {
-    let createdBorrow;
-
-    if (session) {
-      await session.withTransaction(async () => {
-        createdBorrow = await executeIssue(session);
-      });
-    } else {
-      createdBorrow = await executeIssue();
+  } catch (error) {
+    if (decrementedAvailableCopy && !createdBorrow) {
+      await Book.findByIdAndUpdate(bookId, { $inc: { availableCopies: 1 } });
     }
 
-    const borrow = await Borrow.findById(createdBorrow[0]._id).populate('user').populate('book');
-
-    await sendTemplateEmail({
-      user: borrow.user,
-      subject: `Borrow confirmed: ${borrow.book.title}`,
-      preheader: 'Your library loan has been recorded.',
-      bodyLines: [
-        `Hi ${borrow.user.name},`,
-        `You borrowed "${borrow.book.title}" successfully.`,
-        `Please return it by ${borrow.dueAt.toDateString()} to avoid overdue fines.`
-      ],
-      templateKey: 'borrow-confirmed',
-      type: 'borrow_confirmation'
-    });
-
-    return borrow;
-  } finally {
-    if (session) {
-      session.endSession();
-    }
+    throw error;
   }
+
+  const borrow = await Borrow.findById(createdBorrow._id).populate('user').populate('book');
+
+  await sendTemplateEmail({
+    user: borrow.user,
+    subject: `Borrow confirmed: ${borrow.book.title}`,
+    preheader: 'Your library loan has been recorded.',
+    bodyLines: [
+      `Hi ${borrow.user.name},`,
+      `You borrowed "${borrow.book.title}" successfully.`,
+      `Please return it by ${borrow.dueAt.toDateString()} to avoid overdue fines.`
+    ],
+    templateKey: 'borrow-confirmed',
+    type: 'borrow_confirmation'
+  });
+
+  return borrow;
 };
 
 export const renewBorrow = async ({ borrowId, actor }) => {
@@ -197,6 +212,13 @@ export const renewBorrow = async ({ borrowId, actor }) => {
 
   if (borrow.status === BORROW_STATUSES.RETURNED) {
     throw new AppError('Returned loans cannot be renewed', 400);
+  }
+
+  updateBorrowStatus(borrow);
+
+  if (borrow.status === BORROW_STATUSES.OVERDUE || calculateDaysOverdue(borrow.dueAt) > 0) {
+    await borrow.save();
+    throw new AppError('Overdue loans cannot be renewed. Please return the book first.', 400);
   }
 
   if (borrow.renewalCount >= settings.maxRenewals) {
@@ -223,24 +245,34 @@ export const renewBorrow = async ({ borrowId, actor }) => {
 
 export const returnBook = async ({ borrowId, actor }) => {
   const settings = await getSettings();
-  const borrow = await Borrow.findById(borrowId).populate('user').populate('book');
+  const existingBorrow = await Borrow.findById(borrowId).populate('user').populate('book');
 
-  if (!borrow) {
+  if (!existingBorrow) {
     throw new AppError('Borrow record not found', 404);
   }
 
-  if (borrow.status === BORROW_STATUSES.RETURNED) {
+  if (existingBorrow.status === BORROW_STATUSES.RETURNED) {
     throw new AppError('This book has already been returned', 400);
   }
 
   const returnedAt = new Date();
-  borrow.returnedAt = returnedAt;
-  borrow.returnedTo = actor._id;
-  borrow.status = BORROW_STATUSES.RETURNED;
+  const { amount } = calculateOverdueFineAmount(existingBorrow.dueAt, returnedAt, settings.finePerDay);
+  const borrow = await Borrow.findOneAndUpdate(
+    { _id: borrowId, status: { $ne: BORROW_STATUSES.RETURNED } },
+    {
+      $set: {
+        returnedAt,
+        returnedTo: actor._id,
+        status: BORROW_STATUSES.RETURNED,
+        fineAccrued: amount
+      }
+    },
+    { new: true }
+  ).populate('user').populate('book');
 
-  const { amount } = calculateOverdueFineAmount(borrow.dueAt, returnedAt, settings.finePerDay);
-  borrow.fineAccrued = amount;
-  await borrow.save();
+  if (!borrow) {
+    throw new AppError('This book has already been returned', 400);
+  }
 
   const book = await Book.findById(borrow.book._id);
   if (book) {

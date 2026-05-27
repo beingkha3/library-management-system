@@ -2,6 +2,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
+import { Breadcrumbs } from '../components/Breadcrumbs';
 import { Field, PrimaryButton, SecondaryButton, inputClassName } from '../components/FormFields';
 import { LogoLockup } from '../components/LogoLockup';
 import { useAuth } from '../hooks/useAuth';
@@ -101,6 +102,10 @@ export const AuthPage = ({ mode }) => {
           <Link to="/" className="text-sm font-semibold text-academy-700">
             Back to home
           </Link>
+        </div>
+
+        <div className="mb-5">
+          <Breadcrumbs items={[{ label: 'Dashboard', to: '/' }, { label: copy.title }]} />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr]">

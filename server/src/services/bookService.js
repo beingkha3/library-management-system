@@ -1,6 +1,9 @@
 import { Book } from '../models/Book.js';
+import { Borrow } from '../models/Borrow.js';
+import { Reservation } from '../models/Reservation.js';
 import { Review } from '../models/Review.js';
 import { AppError } from '../utils/appError.js';
+import { BORROW_STATUSES, RESERVATION_STATUSES } from '../utils/constants.js';
 
 const applyReviewStats = async (bookId) => {
   const reviews = await Review.find({ book: bookId });
@@ -11,6 +14,21 @@ const applyReviewStats = async (bookId) => {
       : Number((reviews.reduce((sum, item) => sum + item.rating, 0) / reviewCount).toFixed(1));
 
   await Book.findByIdAndUpdate(bookId, { reviewCount, averageRating });
+};
+
+const getHeldCopyCount = async (bookId) => {
+  const [activeLoans, readyReservations] = await Promise.all([
+    Borrow.countDocuments({
+      book: bookId,
+      status: { $in: [BORROW_STATUSES.ACTIVE, BORROW_STATUSES.OVERDUE, BORROW_STATUSES.LOST] }
+    }),
+    Reservation.countDocuments({
+      book: bookId,
+      status: RESERVATION_STATUSES.READY
+    })
+  ]);
+
+  return activeLoans + readyReservations;
 };
 
 export const listBooks = async (query = {}) => {
@@ -55,7 +73,7 @@ export const createBook = async (payload) => {
     ...payload,
     totalCopies,
     availableCopies,
-    reservedCopies: payload.reservedCopies ?? 0
+    reservedCopies: 0
   });
 
   return book;
@@ -68,18 +86,31 @@ export const updateBook = async (bookId, payload) => {
     throw new AppError('Book not found', 404);
   }
 
+  const heldCopies = await getHeldCopyCount(bookId);
+  const nextTotalCopies = payload.totalCopies !== undefined ? Number(payload.totalCopies) : book.totalCopies;
+
+  if (nextTotalCopies < heldCopies) {
+    throw new AppError('Total copies cannot be lower than active loans and ready reservations', 400);
+  }
+
   Object.assign(book, payload);
 
   if (payload.totalCopies !== undefined) {
-    book.totalCopies = Number(payload.totalCopies);
+    book.totalCopies = nextTotalCopies;
   }
 
   if (payload.availableCopies !== undefined) {
     book.availableCopies = Number(payload.availableCopies);
   }
 
-  if (book.availableCopies > book.totalCopies) {
-    book.availableCopies = book.totalCopies;
+  const maxAvailableCopies = Math.max(book.totalCopies - heldCopies, 0);
+
+  if (book.availableCopies > maxAvailableCopies) {
+    if (payload.availableCopies !== undefined) {
+      throw new AppError('Available copies cannot exceed total copies minus active loans and ready reservations', 400);
+    }
+
+    book.availableCopies = maxAvailableCopies;
   }
 
   if (book.availableCopies < 0) {

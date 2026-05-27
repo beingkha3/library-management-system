@@ -1,10 +1,11 @@
 import { Filter, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { apiBaseUrl } from '../api/http';
 import { bookApi, borrowApi, reservationApi } from '../api/services';
 import { BookCard } from '../components/BookCard';
+import { Breadcrumbs } from '../components/Breadcrumbs';
 import { BackendUnavailableState, EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import { Field, PrimaryButton, SecondaryButton, inputClassName } from '../components/FormFields';
 import { useAuth } from '../hooks/useAuth';
@@ -45,6 +46,8 @@ const sortBooks = (books, sortBy) => {
 
 export const PublicCatalogPage = ({ asHome = false }) => {
   const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [availability, setAvailability] = useState('');
@@ -56,10 +59,12 @@ export const PublicCatalogPage = ({ asHome = false }) => {
   const [viewMode, setViewMode] = useState('grid');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [authPrompt, setAuthPrompt] = useState(null);
   const { data, loading, error, setData } = useAsyncData(() => bookApi.list(), []);
 
   const isBackendUnavailable = Boolean(error?.includes('Unable to connect to the server'));
   const sourceBooks = isBackendUnavailable ? sampleBooks : data || [];
+  const dashboardPath = isAuthenticated ? { member: '/app', librarian: '/staff', admin: '/admin' }[user?.role] || '/app' : '/';
 
   const categories = useMemo(() => {
     const values = new Set(sourceBooks.map((book) => book.category).filter(Boolean));
@@ -117,6 +122,15 @@ export const PublicCatalogPage = ({ asHome = false }) => {
 
   const displayBooks = asHome ? filteredBooks.slice(0, 8) : filteredBooks;
 
+  const showAuthPrompt = (action) => {
+    setFeedback('');
+    setAuthPrompt(action);
+  };
+
+  const navigateToAuth = (path) => {
+    navigate(path, { state: { from: location.pathname } });
+  };
+
   const handleBorrow = async (bookId) => {
     if (isBackendUnavailable) {
       setFeedback('Unable to connect to the server. Please make sure the backend is running.');
@@ -124,7 +138,7 @@ export const PublicCatalogPage = ({ asHome = false }) => {
     }
 
     if (!isAuthenticated) {
-      setFeedback('Please sign in to borrow books.');
+      showAuthPrompt('borrow');
       return;
     }
 
@@ -145,7 +159,7 @@ export const PublicCatalogPage = ({ asHome = false }) => {
     }
 
     if (!isAuthenticated) {
-      setFeedback('Please sign in to reserve books.');
+      showAuthPrompt('reserve');
       return;
     }
 
@@ -310,6 +324,8 @@ export const PublicCatalogPage = ({ asHome = false }) => {
 
         {!asHome ? (
           <>
+            <Breadcrumbs items={[{ label: 'Dashboard', to: dashboardPath }, { label: 'Browse catalog' }]} />
+
             <div className="space-y-2">
               <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Search the library catalog</h1>
               <p className="text-sm leading-7 text-slate-500">Find books by title, author, genre, or ISBN.</p>
@@ -350,6 +366,30 @@ export const PublicCatalogPage = ({ asHome = false }) => {
         ) : null}
 
         {feedback ? <p className="rounded-2xl bg-academy-100 px-4 py-3 text-sm text-academy-700">{feedback}</p> : null}
+
+        {authPrompt ? (
+          <div className="rounded-[24px] border border-academy-100 bg-white px-5 py-4 shadow-card">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-semibold text-slate-900">
+                  Sign in to {authPrompt === 'borrow' ? 'borrow this book' : 'reserve this title'}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">Use your library account to continue, or create a member account if you do not have one yet.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <PrimaryButton type="button" onClick={() => navigateToAuth('/login')}>
+                  Sign in
+                </PrimaryButton>
+                <SecondaryButton type="button" onClick={() => navigateToAuth('/register')}>
+                  Create account
+                </SecondaryButton>
+                <SecondaryButton type="button" onClick={() => setAuthPrompt(null)}>
+                  Not now
+                </SecondaryButton>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="lg:hidden">
           <button

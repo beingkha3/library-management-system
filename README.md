@@ -207,6 +207,44 @@ Main route groups:
 6. Optional webhook endpoint `/api/payments/razorpay/webhook` supports deployment reconciliation
 7. Fine status and user balance are updated only after server verification
 
+### Razorpay Test Mode Setup
+
+Use Razorpay **Test Mode** keys for local/staging testing. Do not commit real key values.
+
+Server environment variables:
+
+```env
+RAZORPAY_KEY_ID=rzp_test_xxxxx
+RAZORPAY_KEY_SECRET=replace-with-test-key-secret
+RAZORPAY_WEBHOOK_SECRET=choose-a-separate-webhook-secret
+```
+
+The webhook secret is not the API key secret. Create a separate random secret in the Razorpay Dashboard and use the same value for `RAZORPAY_WEBHOOK_SECRET`.
+
+Webhook URL:
+
+```txt
+https://your-backend-domain.com/api/payments/razorpay/webhook
+```
+
+For local testing, Razorpay cannot call `localhost` directly. Use a public HTTPS tunnel or the deployed Render backend URL.
+
+Recommended test webhook events:
+
+- `payment.captured`
+- `payment.failed`
+- `order.paid`
+
+Dashboard path:
+
+1. Open Razorpay Dashboard in **Test Mode**.
+2. Go to **Accounts & Settings**.
+3. Open **Webhooks** under **Website and app settings**.
+4. Add the webhook URL above.
+5. Enter the same secret configured as `RAZORPAY_WEBHOOK_SECRET`.
+6. Select the recommended events.
+7. Use OTP `754081` if Razorpay prompts during test-mode webhook setup.
+
 ## Email Flow
 
 The backend uses Nodemailer with SMTP credentials.
@@ -258,6 +296,21 @@ Email notifications are used for:
 ## Seed Behavior
 
 If `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set in the backend environment, the server seeds a default admin account on startup if it does not already exist.
+
+To seed the backend catalog with a starter library collection:
+
+```bash
+npm run seed:books --workspace server
+```
+
+Useful checks:
+
+```bash
+npm run seed:books --workspace server -- --validate-only
+npm run seed:books --workspace server -- --dry-run
+```
+
+The book seed is idempotent by ISBN. Existing books keep their current copy counts and circulation state; the script only refreshes metadata such as title, authors, category, publisher, and shelf location.
 
 ## Build Verification
 

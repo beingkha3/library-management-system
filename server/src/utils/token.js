@@ -7,7 +7,8 @@ export const signToken = (user) =>
     {
       sub: user._id.toString(),
       role: user.role,
-      email: user.email
+      email: user.email,
+      tokenVersion: user.tokenVersion || 0
     },
     env.jwtSecret,
     { expiresIn: env.jwtExpiresIn }

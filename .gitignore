@@ -19,11 +19,6 @@ server/.env.example.bak
 AGENTS.md
 CLAUDE.md
 
-# Playwright
 screenshots/
-playwright-report/
 test-results/
-e2e/.auth/
-playwright/.cache/
-**/playwright-report/
 **/test-results/

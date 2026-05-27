@@ -5,6 +5,7 @@ import { DataTable } from '../components/DataTable';
 import { Field, PrimaryButton, SecondaryButton, inputClassName } from '../components/FormFields';
 import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
+import { StatCard } from '../components/StatCard';
 import { StatusPill } from '../components/StatusPill';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import { useAsyncData } from '../hooks/useAsyncData';

@@ -114,6 +114,11 @@ export const DashboardLayout = ({ requiredRoles }) => {
     return <Navigate to="/unauthorized" replace />;
   }
 
+  // Admin belongs to /admin; redirect away from /staff to avoid confusion
+  if (user.role === 'admin' && location.pathname.startsWith('/staff')) {
+    return <Navigate to="/admin" replace />;
+  }
+
   const quickActions = (quickActionsByRole[user.role] || [])
     .filter((action) => action.onClickPath !== location.pathname)
     .map((action) => ({

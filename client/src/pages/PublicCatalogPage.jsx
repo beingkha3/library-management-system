@@ -268,9 +268,35 @@ export const PublicCatalogPage = ({ asHome = false }) => {
     </div>
   );
 
+  const showPublicNav = !asHome && !isAuthenticated;
+
   return (
-    <div className={`${asHome ? 'min-h-screen bg-slate-50' : ''}`}>
-      <div className={asHome ? 'mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8' : 'space-y-6'}>
+    <div className={`${asHome || showPublicNav ? 'min-h-screen bg-slate-50' : ''}`}>
+      {showPublicNav ? (
+        <>
+          <header className="border-b border-slate-200 bg-white px-5 py-4 sm:px-8">
+            <div className="flex items-center justify-between">
+              <LogoLockup publicMode />
+              <nav className="flex items-center gap-3 text-sm font-medium text-slate-600">
+                <Link to="/login" className="rounded-xl border border-slate-200 px-4 py-2 transition hover:border-academy-200 hover:text-academy-700">
+                  Sign in
+                </Link>
+                <Link to="/register" className="rounded-xl bg-academy-600 px-4 py-2 text-white transition hover:bg-academy-700">
+                  Create account
+                </Link>
+              </nav>
+            </div>
+          </header>
+          <div className="border-b border-slate-200 bg-white px-5 py-3 sm:px-8">
+            <nav className="flex items-center gap-1.5 text-sm text-slate-500">
+              <Link to="/" className="transition hover:text-academy-700">Home</Link>
+              <span>/</span>
+              <span className="text-slate-900">Books</span>
+            </nav>
+          </div>
+        </>
+      ) : null}
+      <div className={asHome ? 'mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8' : showPublicNav ? 'mx-auto max-w-7xl space-y-5 px-5 py-6 sm:px-8' : 'space-y-6'}>
         {asHome ? (
           <>
             <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-1 py-4 sm:px-0">

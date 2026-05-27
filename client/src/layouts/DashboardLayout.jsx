@@ -167,13 +167,8 @@ export const DashboardLayout = ({ requiredRoles }) => {
           }}
         />
         <div className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-3">
+          <div className="mx-auto w-full max-w-7xl">
             <Breadcrumbs items={breadcrumbItems} />
-            <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Role: {user.role}</span>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Signed in</span>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">Library account</span>
-            </div>
           </div>
         </div>
         <main className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6">

@@ -1,4 +1,4 @@
-import { CreditCard, Library, RotateCcw, TimerReset } from 'lucide-react';
+import { BookCopy, CreditCard, Library, TimerReset } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -13,7 +13,7 @@ import { currency, date, relativeLoanState } from '../utils/formatters';
 
 const quickActions = [
   { label: 'Browse catalog', to: '/app/catalog', icon: Library },
-  { label: 'Renew loans', to: '/app/my-loans', icon: RotateCcw },
+  { label: 'My Loans', to: '/app/my-loans', icon: BookCopy },
   { label: 'Pay fines', to: '/app/my-fines', icon: CreditCard },
   { label: 'Track holds', to: '/app/my-reservations', icon: TimerReset }
 ];

@@ -12,6 +12,8 @@ yarn-error.log*
 .DS_Store
 coverage/
 razorpay_test_api_keys*.csv
+DEVELOPMENT_HANDOFF.md
+server/.env.example.bak
 # Local AI/tooling metadata
 .claude/
 AGENTS.md

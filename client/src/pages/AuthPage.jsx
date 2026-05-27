@@ -91,21 +91,15 @@ export const AuthPage = ({ mode }) => {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-5 flex items-center justify-between border-b border-slate-200 bg-white px-1 py-4 sm:px-0">
-          <div className="flex items-center gap-3">
-            <LogoLockup compact />
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Library Management System</p>
-              <p className="text-xs text-slate-500">Library member access</p>
-            </div>
-          </div>
-          <Link to="/" className="text-sm font-semibold text-academy-700">
+          <div className="mb-5 flex items-center justify-between border-b border-slate-200 bg-white px-1 py-4 sm:px-0">
+          <LogoLockup publicMode />
+          <Link to="/" className="text-sm font-medium text-academy-700 transition hover:text-academy-600">
             Back to home
           </Link>
         </div>
 
         <div className="mb-5">
-          <Breadcrumbs items={[{ label: 'Dashboard', to: '/' }, { label: copy.title }]} />
+          <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: copy.title }]} />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr]">

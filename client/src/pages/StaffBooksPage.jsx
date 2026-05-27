@@ -141,22 +141,10 @@ export const StaffBooksPage = () => {
       {message ? <p className="rounded-2xl bg-academy-100 px-4 py-3 text-sm text-academy-700">{message}</p> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Titles</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{catalogStats.totalTitles}</p>
-        </div>
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Total copies</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{catalogStats.totalCopies}</p>
-        </div>
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Available copies</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{catalogStats.availableCopies}</p>
-        </div>
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-card">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Featured titles</p>
-          <p className="mt-3 text-3xl font-semibold text-slate-900">{catalogStats.featuredBooks}</p>
-        </div>
+        <StatCard label="Titles" value={catalogStats.totalTitles} tone="navy" />
+        <StatCard label="Total copies" value={catalogStats.totalCopies} tone="default" />
+        <StatCard label="Available copies" value={catalogStats.availableCopies} tone="green" />
+        <StatCard label="Featured titles" value={catalogStats.featuredBooks} tone="blue" />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
@@ -261,6 +249,7 @@ export const StaffBooksPage = () => {
               {
                 key: 'title',
                 label: 'Title',
+                width: '2.5fr',
                 render: (row) => (
                   <div>
                     <p className="font-medium text-slate-900">{row.title}</p>
@@ -271,26 +260,31 @@ export const StaffBooksPage = () => {
               {
                 key: 'category',
                 label: 'Category',
+                width: '1fr',
                 render: (row) => <span className="text-sm text-slate-600">{row.category}</span>
               },
               {
                 key: 'copies',
                 label: 'Copies',
+                width: '0.6fr',
                 render: (row) => `${row.availableCopies}/${row.totalCopies}`
               },
               {
                 key: 'location',
                 label: 'Shelf',
+                width: '0.8fr',
                 render: (row) => row.shelfLocation || 'Main stacks'
               },
               {
                 key: 'status',
                 label: 'Availability',
+                width: '0.8fr',
                 render: (row) => <StatusPill value={row.availableCopies > 0 ? 'active' : 'queued'} />
               },
               {
                 key: 'actions',
                 label: 'Actions',
+                width: '1fr',
                 render: (row) => (
                   <div className="flex flex-wrap gap-2">
                     <SecondaryButton type="button" className="px-3 py-2" onClick={() => handleEditSelect(row)}>

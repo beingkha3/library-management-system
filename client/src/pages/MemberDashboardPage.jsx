@@ -132,7 +132,9 @@ export const MemberDashboardPage = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-slate-500">No active reservations.</p>
+                <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">
+                  No active reservations.
+                </p>
               )}
             </div>
           </SectionCard>
@@ -152,7 +154,9 @@ export const MemberDashboardPage = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-slate-500">No fine history yet.</p>
+                <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">
+                  No fine history yet.
+                </p>
               )}
             </div>
           </SectionCard>

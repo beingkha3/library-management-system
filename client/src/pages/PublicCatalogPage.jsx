@@ -2,12 +2,12 @@ import { Filter, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
-import { apiBaseUrl } from '../api/http';
 import { bookApi, borrowApi, reservationApi } from '../api/services';
 import { BookCard } from '../components/BookCard';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { BackendUnavailableState, EmptyState, ErrorState, LoadingState } from '../components/StateViews';
 import { Field, PrimaryButton, SecondaryButton, inputClassName } from '../components/FormFields';
+import { LogoLockup } from '../components/LogoLockup';
 import { useAuth } from '../hooks/useAuth';
 import { useAsyncData } from '../hooks/useAsyncData';
 import { sampleBooks } from '../utils/sampleData';
@@ -276,16 +276,14 @@ export const PublicCatalogPage = ({ asHome = false }) => {
           <>
             <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white px-1 py-4 sm:px-0">
               <div className="flex items-center gap-3">
-                <div>
-                  <p className="text-lg font-semibold text-slate-900">Library Management System</p>
-                </div>
+                <LogoLockup publicMode />
               </div>
-              <nav className="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-600">
+              <nav className="flex flex-wrap items-center gap-3 text-sm font-medium text-slate-600">
                 <Link to="/books" className="transition hover:text-academy-700">Browse Catalog</Link>
-                <Link to="/login" className="rounded-2xl border border-slate-200 px-4 py-2.5 transition hover:border-academy-200 hover:text-academy-700">
+                <Link to="/login" className="rounded-xl border border-slate-200 px-4 py-2 transition hover:border-academy-200 hover:text-academy-700">
                   Sign In
                 </Link>
-                <Link to="/register" className="rounded-2xl bg-academy-700 px-4 py-2.5 text-white transition hover:bg-academy-600">
+                <Link to="/register" className="rounded-xl bg-academy-600 px-4 py-2 text-white transition hover:bg-academy-700">
                   Create Account
                 </Link>
               </nav>
@@ -304,7 +302,6 @@ export const PublicCatalogPage = ({ asHome = false }) => {
                     placeholder="Search by title, author, genre, or ISBN"
                   />
                 </div>
-                <PrimaryButton type="button" className="h-14 px-6">Search</PrimaryButton>
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 {quickFilterOptions.map((item) => (
@@ -362,7 +359,7 @@ export const PublicCatalogPage = ({ asHome = false }) => {
         ) : null}
 
         {isBackendUnavailable ? (
-          <BackendUnavailableState apiUrl={apiBaseUrl} action={<p className="text-sm text-amber-800">Showing sample books while the server is unavailable.</p>} />
+          <BackendUnavailableState />
         ) : null}
 
         {feedback ? <p className="rounded-2xl bg-academy-100 px-4 py-3 text-sm text-academy-700">{feedback}</p> : null}
@@ -445,7 +442,7 @@ export const PublicCatalogPage = ({ asHome = false }) => {
             </div>
 
             {displayBooks.length ? (
-              <div className={viewMode === 'grid' ? 'grid gap-5 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3' : 'space-y-4'}>
+              <div className={viewMode === 'grid' ? 'grid gap-5 md:grid-cols-2 xl:grid-cols-3' : 'space-y-4'}>
                 {displayBooks.map((book) => (
                   <BookCard
                     key={book._id}

@@ -173,6 +173,7 @@ export const StaffLoansPage = () => {
                 {
                   key: 'book',
                   label: 'Book',
+                  width: '2fr',
                   render: (row) => (
                     <div>
                       <p className="font-medium text-slate-900">{row.book?.title}</p>
@@ -182,10 +183,11 @@ export const StaffLoansPage = () => {
                 },
                 { key: 'borrowedAt', label: 'Borrowed', render: (row) => date(row.borrowedAt) },
                 { key: 'dueAt', label: 'Due status', render: (row) => `${date(row.dueAt)} (${relativeLoanState(row.dueAt)})` },
-                { key: 'status', label: 'Status', render: (row) => <StatusPill value={row.status} /> },
+                { key: 'status', label: 'Status', width: '0.8fr', render: (row) => <StatusPill value={row.status} /> },
                 {
                   key: 'actions',
                   label: 'Actions',
+                  width: '0.9fr',
                   render: (row) =>
                     row.status === 'returned' ? (
                       <span className="text-sm text-slate-400">Complete</span>

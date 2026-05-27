@@ -1,7 +1,26 @@
-import { BookMarked, MapPin, Star } from 'lucide-react';
+import { BookOpen, MapPin, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { StatusPill } from './StatusPill';
+
+const BookCoverPlaceholder = ({ size = 'md', isAvailable }) => {
+  const sizeMap = {
+    sm: 'h-24 w-20',
+    md: 'h-28 w-20'
+  };
+  return (
+    <div
+      className={`flex ${sizeMap[size]} shrink-0 flex-col items-center justify-center gap-1.5 rounded-2xl border ${
+        isAvailable
+          ? 'border-slate-200 bg-slate-50'
+          : 'border-slate-200 bg-slate-100'
+      }`}
+    >
+      <BookOpen size={20} className="text-slate-300" />
+      <span className="text-[10px] font-medium text-slate-300">No cover</span>
+    </div>
+  );
+};
 
 export const BookCard = ({ book, action, detailsPath = `/app/catalog/${book._id}`, layout = 'grid' }) => {
   const isAvailable = book.availableCopies > 0;
@@ -11,9 +30,7 @@ export const BookCard = ({ book, action, detailsPath = `/app/catalog/${book._id}
       <div className={`rounded-[24px] border px-4 py-4 shadow-card transition hover:border-academy-200 ${isAvailable ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50/70'}`}>
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex gap-4">
-            <div className={`flex h-24 w-20 shrink-0 items-center justify-center rounded-2xl border text-xs font-semibold ${isAvailable ? 'border-slate-200 bg-slate-100 text-slate-500' : 'border-slate-200 bg-slate-200 text-slate-500'}`}>
-              Cover
-            </div>
+            <BookCoverPlaceholder size="sm" isAvailable={isAvailable} />
             <div>
               <Link to={detailsPath} className="text-lg font-semibold text-slate-900 hover:text-academy-700">
                 {book.title}
@@ -44,9 +61,7 @@ export const BookCard = ({ book, action, detailsPath = `/app/catalog/${book._id}
   return (
     <div className={`rounded-[24px] border p-5 shadow-card transition hover:border-academy-200 ${isAvailable ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50/70'}`}>
       <div className="flex gap-4">
-        <div className={`flex h-28 w-20 shrink-0 items-center justify-center rounded-2xl border text-xs font-semibold ${isAvailable ? 'border-slate-200 bg-slate-100 text-slate-500' : 'border-slate-200 bg-slate-200 text-slate-500'}`}>
-          Cover
-        </div>
+        <BookCoverPlaceholder size="md" isAvailable={isAvailable} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>

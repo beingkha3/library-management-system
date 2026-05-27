@@ -1,0 +1,16 @@
+{
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": [
+        "npx",
+        "@playwright/mcp@latest",
+        "--headless",
+        "--allowed-hosts",
+        "localhost",
+        "--port",
+        "8933"
+      ]
+    }
+  }
+}

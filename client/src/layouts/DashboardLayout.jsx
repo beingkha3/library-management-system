@@ -147,7 +147,7 @@ export const DashboardLayout = ({ requiredRoles }) => {
           onMenuClick={() => setSidebarOpen(true)}
           onLogout={() => {
             logout();
-            navigate('/login');
+            navigate('/');
           }}
         />
         <div className="border-b border-slate-200 bg-white px-5 py-3 sm:px-8">

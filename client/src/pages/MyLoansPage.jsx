@@ -11,7 +11,7 @@ import { date, relativeLoanState } from '../utils/formatters';
 
 export const MyLoansPage = () => {
   const [message, setMessage] = useState('');
-  const { data, loading, error, setData } = useAsyncData(() => borrowApi.list(), []);
+  const { data, loading, error, setData } = useAsyncData(() => borrowApi.list(), [], { pollIntervalMs: 10000 });
 
   const handleRenew = async (borrowId) => {
     try {

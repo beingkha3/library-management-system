@@ -245,62 +245,64 @@ export const StaffBooksPage = () => {
         </div>
 
         <SectionCard title="Active catalog" description="Current books available to members and staff.">
-          <DataTable
-            columns={[
-              {
-                key: 'title',
-                label: 'Title',
-                width: '2.5fr',
-                render: (row) => (
-                  <div>
-                    <p className="font-medium text-slate-900">{row.title}</p>
-                    <p className="text-xs text-slate-500">{row.authors?.join(', ')}</p>
-                  </div>
-                )
-              },
-              {
-                key: 'category',
-                label: 'Category',
-                width: '1fr',
-                render: (row) => <span className="text-sm text-slate-600">{row.category}</span>
-              },
-              {
-                key: 'copies',
-                label: 'Copies',
-                width: '0.6fr',
-                render: (row) => `${row.availableCopies}/${row.totalCopies}`
-              },
-              {
-                key: 'location',
-                label: 'Shelf',
-                width: '0.8fr',
-                render: (row) => row.shelfLocation || 'Main stacks'
-              },
-              {
-                key: 'status',
-                label: 'Availability',
-                width: '0.8fr',
-                render: (row) => <StatusPill value={row.availableCopies > 0 ? 'active' : 'queued'} />
-              },
-              {
-                key: 'actions',
-                label: 'Actions',
-                width: '1fr',
-                render: (row) => (
-                  <div className="flex flex-wrap gap-2">
-                    <SecondaryButton type="button" className="px-3 py-2" onClick={() => handleEditSelect(row)}>
-                      Edit
-                    </SecondaryButton>
-                    <SecondaryButton type="button" className="px-3 py-2" onClick={() => handleArchive(row._id)}>
-                      Archive
-                    </SecondaryButton>
-                  </div>
-                )
-              }
-            ]}
-            rows={data}
-            emptyMessage="There are no active titles in the catalog yet."
-          />
+          <div className="max-h-[42rem] overflow-y-auto pr-1">
+            <DataTable
+              columns={[
+                {
+                  key: 'title',
+                  label: 'Title',
+                  width: '2.5fr',
+                  render: (row) => (
+                    <div>
+                      <p className="font-medium text-slate-900">{row.title}</p>
+                      <p className="text-xs text-slate-500">{row.authors?.join(', ')}</p>
+                    </div>
+                  )
+                },
+                {
+                  key: 'category',
+                  label: 'Category',
+                  width: '1fr',
+                  render: (row) => <span className="text-sm text-slate-600">{row.category}</span>
+                },
+                {
+                  key: 'copies',
+                  label: 'Copies',
+                  width: '0.6fr',
+                  render: (row) => `${row.availableCopies}/${row.totalCopies}`
+                },
+                {
+                  key: 'location',
+                  label: 'Shelf',
+                  width: '0.8fr',
+                  render: (row) => row.shelfLocation || 'Main stacks'
+                },
+                {
+                  key: 'status',
+                  label: 'Availability',
+                  width: '0.8fr',
+                  render: (row) => <StatusPill value={row.availableCopies > 0 ? 'active' : 'queued'} />
+                },
+                {
+                  key: 'actions',
+                  label: 'Actions',
+                  width: '1fr',
+                  render: (row) => (
+                    <div className="flex flex-wrap gap-2">
+                      <SecondaryButton type="button" className="px-3 py-2" onClick={() => handleEditSelect(row)}>
+                        Edit
+                      </SecondaryButton>
+                      <SecondaryButton type="button" className="px-3 py-2" onClick={() => handleArchive(row._id)}>
+                        Archive
+                      </SecondaryButton>
+                    </div>
+                  )
+                }
+              ]}
+              rows={data}
+              emptyMessage="There are no active titles in the catalog yet."
+            />
+          </div>
         </SectionCard>
       </div>
     </div>

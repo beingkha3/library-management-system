@@ -14,9 +14,9 @@ import { currency, date, relativeLoanState } from '../utils/formatters';
 export const StaffLoansPage = () => {
   const [message, setMessage] = useState('');
   const [issueForm, setIssueForm] = useState({ userId: '', bookId: '' });
-  const borrowsQuery = useAsyncData(() => borrowApi.list(), []);
-  const usersQuery = useAsyncData(() => userApi.list(), []);
-  const booksQuery = useAsyncData(() => bookApi.list(), []);
+  const borrowsQuery = useAsyncData(() => borrowApi.list(), [], { pollIntervalMs: 10000 });
+  const usersQuery = useAsyncData(() => userApi.list(), [], { pollIntervalMs: 10000 });
+  const booksQuery = useAsyncData(() => bookApi.list(), [], { pollIntervalMs: 10000 });
 
   const selectedUser = useMemo(
     () => usersQuery.data?.find((user) => user._id === issueForm.userId),

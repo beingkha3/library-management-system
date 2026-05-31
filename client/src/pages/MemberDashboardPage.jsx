@@ -11,6 +11,8 @@ import { ErrorState, LoadingState } from '../components/StateViews';
 import { useAsyncData } from '../hooks/useAsyncData';
 import { currency, date, relativeLoanState } from '../utils/formatters';
 
+const getOutstandingFineAmount = (fine) => (['paid', 'waived'].includes(fine.status) ? 0 : Math.max(fine.amount - fine.paidAmount, 0));
+
 const quickActions = [
   { label: 'Browse catalog', to: '/app/catalog', icon: Library },
   { label: 'My Loans', to: '/app/my-loans', icon: BookCopy },
@@ -19,7 +21,7 @@ const quickActions = [
 ];
 
 export const MemberDashboardPage = () => {
-  const { data, loading, error } = useAsyncData(() => dashboardApi.member(), []);
+  const { data, loading, error } = useAsyncData(() => dashboardApi.member(), [], { pollIntervalMs: 10000 });
 
   const summaryCards = useMemo(() => {
     if (!data) {
@@ -126,7 +128,7 @@ export const MemberDashboardPage = () => {
                   <div key={fine._id} className="rounded-[22px] border border-slate-200 px-4 py-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="font-medium text-slate-900">{currency(Math.max(fine.amount - fine.paidAmount, 0))}</p>
+                        <p className="font-medium text-slate-900">{currency(getOutstandingFineAmount(fine))}</p>
                         <p className="text-sm text-slate-500">Reason: {fine.reason}</p>
                       </div>
                       <StatusPill value={fine.status} />

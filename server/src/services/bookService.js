@@ -5,6 +5,107 @@ import { Review } from '../models/Review.js';
 import { AppError } from '../utils/appError.js';
 import { BORROW_STATUSES, RESERVATION_STATUSES } from '../utils/constants.js';
 
+const PAGINATION_LIMIT_DEFAULT = 12;
+const PAGINATION_LIMIT_MAX = 50;
+
+const clampPositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+};
+
+const buildBookFilter = (query = {}) => {
+  const filter = { status: 'active' };
+
+  if (query.search) {
+    const escapedSearch = query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const searchPattern = new RegExp(escapedSearch, 'i');
+    filter.$or = [
+      { title: searchPattern },
+      { authors: searchPattern },
+      { category: searchPattern },
+      { isbn: searchPattern },
+      { description: searchPattern }
+    ];
+  }
+
+  if (query.category) {
+    filter.category = query.category;
+  }
+
+  if (query.featured === 'true') {
+    filter.featured = true;
+  }
+
+  if (query.author) {
+    filter.authors = query.author;
+  }
+
+  if (query.language) {
+    filter.language = query.language;
+  }
+
+  if (query.publishedYear) {
+    const publishedYear = Number(query.publishedYear);
+    if (Number.isFinite(publishedYear)) {
+      filter.publishedYear = publishedYear;
+    }
+  }
+
+  if (query.availability === 'available') {
+    filter.availableCopies = { $gt: 0 };
+  }
+
+  if (query.availability === 'unavailable') {
+    filter.availableCopies = { $lte: 0 };
+  }
+
+  if (query.minRating) {
+    const minRating = Number(query.minRating);
+    if (Number.isFinite(minRating)) {
+      filter.averageRating = { $gte: minRating };
+    }
+  }
+
+  return filter;
+};
+
+const getBookSort = (sort) => {
+  switch (sort) {
+    case 'title-asc':
+      return { title: 1, createdAt: -1 };
+    case 'year-desc':
+      return { publishedYear: -1, title: 1 };
+    case 'rating-desc':
+      return { averageRating: -1, reviewCount: -1, title: 1 };
+    case 'available-desc':
+      return { availableCopies: -1, title: 1 };
+    case 'featured':
+    default:
+      return { featured: -1, createdAt: -1 };
+  }
+};
+
+const getBookFacets = async () => {
+  const [categories, authors, years, languages] = await Promise.all([
+    Book.distinct('category', { status: 'active' }),
+    Book.distinct('authors', { status: 'active' }),
+    Book.distinct('publishedYear', { status: 'active' }),
+    Book.distinct('language', { status: 'active' })
+  ]);
+
+  return {
+    categories: categories.filter(Boolean).sort((left, right) => left.localeCompare(right)),
+    authors: authors.filter(Boolean).sort((left, right) => left.localeCompare(right)),
+    years: years.filter(Boolean).sort((left, right) => right - left),
+    languages: languages.filter(Boolean).sort((left, right) => left.localeCompare(right))
+  };
+};
+
 const applyReviewStats = async (bookId) => {
   const reviews = await Review.find({ book: bookId });
   const reviewCount = reviews.length;
@@ -32,22 +133,36 @@ const getHeldCopyCount = async (bookId) => {
 };
 
 export const listBooks = async (query = {}) => {
-  const filter = { status: 'active' };
+  const filter = buildBookFilter(query);
+  const sort = getBookSort(query.sort);
 
-  if (query.search) {
-    filter.$text = { $search: query.search };
+  if (query.paginate === 'true') {
+    const page = clampPositiveInt(query.page, 1);
+    const limit = Math.min(clampPositiveInt(query.limit, PAGINATION_LIMIT_DEFAULT), PAGINATION_LIMIT_MAX);
+    const [total, facets] = await Promise.all([
+      Book.countDocuments(filter),
+      getBookFacets()
+    ]);
+    const totalPages = Math.max(Math.ceil(total / limit), 1);
+    const currentPage = Math.min(page, totalPages);
+    const skip = (currentPage - 1) * limit;
+    const items = await Book.find(filter).sort(sort).skip(skip).limit(limit);
+
+    return {
+      items,
+      pagination: {
+        page: currentPage,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: currentPage < totalPages,
+        hasPreviousPage: currentPage > 1
+      },
+      facets
+    };
   }
 
-  if (query.category) {
-    filter.category = query.category;
-  }
-
-  if (query.featured === 'true') {
-    filter.featured = true;
-  }
-
-  const books = await Book.find(filter).sort({ featured: -1, createdAt: -1 });
-  return books;
+  return Book.find(filter).sort(sort);
 };
 
 export const getBookById = async (bookId) => {

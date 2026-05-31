@@ -105,7 +105,6 @@ Main backend modules:
 
 ## Upcoming Features
 
-- **Fine payments** via Razorpay integration
 - **Email notifications** via SMTP (borrow confirmations, reservation alerts, etc.)
 - Input validation using Zod schemas
 
@@ -166,6 +165,9 @@ Important values:
 - `MONGODB_URI` — MongoDB Atlas connection string
 - `JWT_SECRET` — secret key for signing tokens (minimum 32 characters)
 - `CLIENT_URL` — frontend URL(s) for CORS (comma-separated for multiple origins)
+- `RAZORPAY_KEY_ID` — Razorpay key id for fine payments
+- `RAZORPAY_KEY_SECRET` — Razorpay key secret for order creation and payment verification
+- `RAZORPAY_WEBHOOK_SECRET` — Razorpay webhook secret used to validate webhook signatures
 - `ADMIN_EMAIL` — auto-seeded admin account email
 - `ADMIN_PASSWORD` — auto-seeded admin account password
 
@@ -208,6 +210,13 @@ Main route groups:
 - Start command: `npm run start --workspace server`
 - Add all backend environment variables
 - Set `CLIENT_URL` to your Netlify frontend URL
+
+### Razorpay Test Hint
+
+- Fine payments are integrated through Razorpay Checkout.
+- For test-mode card payments, `4100 2800 0000 1007` is a working test card for this project.
+- Use any future expiry date and any CVV, then complete the mock OTP step in Razorpay test mode.
+- Configure the webhook URL as `https://library-management-system-6ftt.onrender.com/api/payments/razorpay/webhook`.
 
 ### Netlify Frontend
 

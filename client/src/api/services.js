@@ -10,6 +10,7 @@ export const authApi = {
 
 export const bookApi = {
   list: (params) => unwrap(api.get('/books', { params })),
+  listPage: (params) => unwrap(api.get('/books', { params: { ...params, paginate: 'true' } })),
   get: (bookId) => unwrap(api.get(`/books/${bookId}`)),
   create: (payload) => unwrap(api.post('/books', payload)),
   update: (bookId, payload) => unwrap(api.patch(`/books/${bookId}`, payload)),

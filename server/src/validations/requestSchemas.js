@@ -103,7 +103,16 @@ export const bookSchemas = {
       .object({
         search: optionalString(255),
         category: optionalString(120),
-        featured: z.enum(['true', 'false']).optional()
+        featured: z.enum(['true', 'false']).optional(),
+        availability: z.enum(['available', 'unavailable']).optional(),
+        author: optionalString(120),
+        language: optionalString(80),
+        publishedYear: optionalString(10),
+        minRating: optionalString(10),
+        sort: z.enum(['featured', 'title-asc', 'year-desc', 'rating-desc', 'available-desc']).optional(),
+        page: optionalString(10),
+        limit: optionalString(10),
+        paginate: z.enum(['true', 'false']).optional()
       })
       .passthrough()
   },

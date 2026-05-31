@@ -1,23 +1,39 @@
 import { useState } from 'react';
 
-import { reservationApi } from '../api/services';
+import { borrowApi, reservationApi } from '../api/services';
 import { DataTable } from '../components/DataTable';
 import { PageHeader } from '../components/PageHeader';
 import { SecondaryButton } from '../components/FormFields';
 import { StatusPill } from '../components/StatusPill';
 import { ErrorState, LoadingState } from '../components/StateViews';
+import { useAuth } from '../hooks/useAuth';
 import { useAsyncData } from '../hooks/useAsyncData';
 import { date } from '../utils/formatters';
 
 export const MyReservationsPage = () => {
   const [message, setMessage] = useState('');
+  const { user } = useAuth();
   const { data, loading, error, setData } = useAsyncData(() => reservationApi.mine(), []);
+
+  const reloadReservations = async () => {
+    setData(await reservationApi.mine());
+  };
+
+  const handleBorrowReady = async (reservation) => {
+    try {
+      await borrowApi.issue({ bookId: reservation.book?._id, userId: user._id });
+      setMessage('Reserved book borrowed successfully.');
+      await reloadReservations();
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
 
   const handleCancel = async (reservationId) => {
     try {
       await reservationApi.cancel(reservationId);
       setMessage('Reservation cancelled successfully.');
-      setData(await reservationApi.mine());
+      await reloadReservations();
     } catch (err) {
       setMessage(err.message);
     }
@@ -58,8 +74,12 @@ export const MyReservationsPage = () => {
             key: 'actions',
             label: 'Actions',
             render: (row) =>
-              ['fulfilled', 'cancelled'].includes(row.status) ? (
+              ['fulfilled', 'cancelled', 'expired'].includes(row.status) ? (
                 <span className="text-sm text-slate-400">Closed</span>
+              ) : row.status === 'ready' ? (
+                <SecondaryButton type="button" onClick={() => handleBorrowReady(row)}>
+                  Borrow now
+                </SecondaryButton>
               ) : (
                 <SecondaryButton type="button" onClick={() => handleCancel(row._id)}>
                   Cancel

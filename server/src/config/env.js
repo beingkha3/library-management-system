@@ -33,6 +33,7 @@ const mongodbUri =
 
 const jwtSecret = process.env.JWT_SECRET || (isProductionEnv ? '' : 'development-secret-key');
 const smtpFrom = process.env.EMAIL_FROM || process.env.SMTP_FROM || 'Library Management <noreply@example.com>';
+const isConfiguredValue = (value) => Boolean(value && !/^replace-with-|^rzp_test_xxxxx$/i.test(value));
 
 export const env = {
   nodeEnv,
@@ -71,4 +72,4 @@ if (isProductionEnv) {
 
 export const isProduction = env.nodeEnv === 'production';
 export const isEmailEnabled = Boolean(env.smtpHost && env.smtpUser && env.smtpPass);
-export const isRazorpayEnabled = Boolean(env.razorpayKeyId && env.razorpayKeySecret);
+export const isRazorpayEnabled = isConfiguredValue(env.razorpayKeyId) && isConfiguredValue(env.razorpayKeySecret);

@@ -141,10 +141,23 @@ export const bookSchemas = {
         comment: optionalString(2000)
       })
       .strict()
+  },
+  deleteReview: {
+    params: z.object({ id: objectId, reviewId: objectId }).strict()
   }
 };
 
 export const userSchemas = {
+  profileUpdate: {
+    body: z
+      .object({
+        name: nonEmptyString(120).optional(),
+        phone: optionalString(30),
+        address: optionalString(500)
+      })
+      .strict()
+      .refine(atLeastOneField, 'At least one field is required')
+  },
   update: {
     params: commonSchemas.idParam.params,
     body: z
@@ -246,6 +259,15 @@ export const dashboardSchemas = {
 };
 
 export const notificationSchemas = {
+  sendAnnouncement: {
+    body: z
+      .object({
+        subject: nonEmptyString(200),
+        message: nonEmptyString(5000),
+        role: z.enum(Object.values(ROLES)).optional()
+      })
+      .strict()
+  },
   testEmail: {
     body: z
       .object({

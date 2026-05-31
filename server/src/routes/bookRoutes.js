@@ -6,6 +6,7 @@ import {
   getBooks,
   patchBook,
   postBook,
+  removeReview,
   upsertReview
 } from '../controllers/bookController.js';
 import { protect, requireRoles } from '../middleware/authMiddleware.js';
@@ -21,5 +22,6 @@ router.post('/', protect, requireRoles(ROLES.LIBRARIAN, ROLES.ADMIN), validateRe
 router.patch('/:id', protect, requireRoles(ROLES.LIBRARIAN, ROLES.ADMIN), validateRequest(bookSchemas.update), patchBook);
 router.delete('/:id', protect, requireRoles(ROLES.LIBRARIAN, ROLES.ADMIN), validateRequest(commonSchemas.idParam), deleteBook);
 router.post('/:id/reviews', protect, validateRequest(bookSchemas.review), upsertReview);
+router.delete('/:id/reviews/:reviewId', protect, requireRoles(ROLES.LIBRARIAN, ROLES.ADMIN), validateRequest(bookSchemas.deleteReview), removeReview);
 
 export default router;

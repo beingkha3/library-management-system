@@ -264,3 +264,16 @@ export const addOrUpdateReview = async ({ userId, bookId, rating, comment }) => 
   await applyReviewStats(bookId);
   return getBookById(bookId);
 };
+
+export const deleteReview = async ({ reviewId }) => {
+  const review = await Review.findById(reviewId);
+
+  if (!review) {
+    throw new AppError('Review not found', 404);
+  }
+
+  const { book: bookId } = review;
+  await review.deleteOne();
+  await applyReviewStats(bookId);
+  return getBookById(bookId);
+};

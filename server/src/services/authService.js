@@ -219,3 +219,21 @@ export const updateUser = async (targetUserId, payload, actor) => {
   await user.save();
   return sanitizeUser(user);
 };
+
+export const updateOwnProfile = async (userId, payload) => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  const allowedFields = ['name', 'phone', 'address'];
+  for (const field of allowedFields) {
+    if (payload[field] !== undefined) {
+      user[field] = payload[field];
+    }
+  }
+
+  await user.save();
+  return sanitizeUser(user);
+};

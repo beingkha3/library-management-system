@@ -12,6 +12,7 @@ import { date } from '../utils/formatters';
 
 export const AdminAuditPage = () => {
   const [emailTarget, setEmailTarget] = useState('');
+  const [announcement, setAnnouncement] = useState({ subject: '', message: '', role: '' });
   const [message, setMessage] = useState('');
   const logsQuery = useAsyncData(() => notificationApi.logs(), []);
 
@@ -35,6 +36,33 @@ export const AdminAuditPage = () => {
     }
   };
 
+  const handleSendAnnouncement = async (event) => {
+    event.preventDefault();
+
+    try {
+      const result = await notificationApi.sendAnnouncement({
+        subject: announcement.subject,
+        message: announcement.message,
+        role: announcement.role || undefined
+      });
+      setMessage(`Announcement processed for ${result.recipients} recipients.`);
+      setAnnouncement({ subject: '', message: '', role: '' });
+      logsQuery.setData(await notificationApi.logs());
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+
+  const handleSendOverdueReminders = async () => {
+    try {
+      const result = await notificationApi.sendOverdueReminders();
+      setMessage(`Processed overdue reminders for ${result.overdueCount} overdue loans.`);
+      logsQuery.setData(await notificationApi.logs());
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -44,14 +72,38 @@ export const AdminAuditPage = () => {
       />
       {message ? <p className="rounded-2xl bg-academy-100 px-4 py-3 text-sm text-academy-700">{message}</p> : null}
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <SectionCard title="Send test email" description="Verify the configured SMTP provider from the admin dashboard.">
-          <form onSubmit={handleTestEmail} className="space-y-4">
-            <Field label="Destination email">
-              <input className={inputClassName} value={emailTarget} onChange={(event) => setEmailTarget(event.target.value)} placeholder="Leave blank to use your own email" />
-            </Field>
-            <PrimaryButton type="submit">Send test email</PrimaryButton>
-          </form>
-        </SectionCard>
+        <div className="space-y-6">
+          <SectionCard title="Send test email" description="Verify the configured SMTP provider from the admin dashboard.">
+            <form onSubmit={handleTestEmail} className="space-y-4">
+              <Field label="Destination email">
+                <input className={inputClassName} value={emailTarget} onChange={(event) => setEmailTarget(event.target.value)} placeholder="Leave blank to use your own email" />
+              </Field>
+              <PrimaryButton type="submit">Send test email</PrimaryButton>
+            </form>
+          </SectionCard>
+          <SectionCard title="Send announcement" description="Send a system-wide email announcement to all active users or a selected role.">
+            <form onSubmit={handleSendAnnouncement} className="space-y-4">
+              <Field label="Subject">
+                <input className={inputClassName} value={announcement.subject} onChange={(event) => setAnnouncement((current) => ({ ...current, subject: event.target.value }))} />
+              </Field>
+              <Field label="Audience role">
+                <select className={inputClassName} value={announcement.role} onChange={(event) => setAnnouncement((current) => ({ ...current, role: event.target.value }))}>
+                  <option value="">All active users</option>
+                  <option value="member">Members</option>
+                  <option value="librarian">Librarians</option>
+                  <option value="admin">Admins</option>
+                </select>
+              </Field>
+              <Field label="Message">
+                <textarea className={`${inputClassName} min-h-32 resize-y`} value={announcement.message} onChange={(event) => setAnnouncement((current) => ({ ...current, message: event.target.value }))} />
+              </Field>
+              <div className="flex flex-wrap gap-3">
+                <PrimaryButton type="submit">Send announcement</PrimaryButton>
+                <PrimaryButton type="button" onClick={handleSendOverdueReminders}>Send overdue reminders</PrimaryButton>
+              </div>
+            </form>
+          </SectionCard>
+        </div>
         <SectionCard title="Notification logs" description="Recent email-related activity recorded by the backend service layer.">
           <DataTable
             columns={[

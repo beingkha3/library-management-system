@@ -99,6 +99,16 @@ export const BookDetailsPage = () => {
     }
   };
 
+  const handleDeleteReview = async (reviewId) => {
+    try {
+      const nextData = await bookApi.deleteReview(id, reviewId);
+      setData(nextData);
+      setMessage('Review removed successfully.');
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+
   if (loading) {
     return <LoadingState label="Loading book details..." />;
   }
@@ -192,7 +202,14 @@ export const BookDetailsPage = () => {
                       <p className="font-medium text-slate-900">{item.user?.name}</p>
                       <p className="text-sm text-slate-500">{date(item.createdAt)}</p>
                     </div>
-                    <StatusPill value={item.user?.role} />
+                    <div className="flex items-center gap-2">
+                      <StatusPill value={item.user?.role} />
+                      {['librarian', 'admin'].includes(user?.role) ? (
+                        <SecondaryButton type="button" onClick={() => handleDeleteReview(item._id)}>
+                          Remove
+                        </SecondaryButton>
+                      ) : null}
+                    </div>
                   </div>
                   <p className="mt-3 text-sm text-slate-600">{item.comment || 'No comment provided.'}</p>
                   <p className="mt-2 text-sm font-medium text-academy-700">Rating: {item.rating}/5</p>

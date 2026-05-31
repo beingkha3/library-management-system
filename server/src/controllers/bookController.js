@@ -3,6 +3,7 @@ import {
   addOrUpdateReview,
   archiveBook,
   createBook,
+  deleteReview,
   getBookById,
   listBooks,
   updateBook
@@ -42,4 +43,9 @@ export const upsertReview = asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, message: 'Review saved successfully', data });
+});
+
+export const removeReview = asyncHandler(async (req, res) => {
+  const data = await deleteReview({ reviewId: req.params.reviewId });
+  res.json({ success: true, message: 'Review removed successfully', data });
 });

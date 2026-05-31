@@ -9,6 +9,8 @@ A production-style MERN web application for managing books, borrowing, reservati
 - Book inventory and catalog browsing with search
 - Borrowing, renewals, returns, and reservation queue management
 - Overdue fine calculation and tracking
+- Email notifications via SMTP for account, circulation, reservation, and admin workflows
+- Razorpay-based fine payment flow with server-side verification and webhook support
 - Analytics dashboards and reports for staff and administrators
 - Responsive React + Tailwind UI
 - Deployed on Netlify (frontend), Render (backend), MongoDB Atlas (database)
@@ -61,13 +63,17 @@ library-management-system/
 ### Members
 
 - Register and log in
+- Forgot password and reset password by email
 - Browse and search the book catalog
 - Borrow available books
 - Reserve books currently on loan
 - Track due dates and active loans
 - Renew active loans when eligible
 - View outstanding fines
+- Pay fines online with Razorpay Checkout
 - Add reviews and ratings
+- View notification history
+- Update profile details and change password
 
 ### Librarians
 
@@ -76,6 +82,7 @@ library-management-system/
 - Issue books to members
 - Process returns
 - Review reservations and fines
+- Moderate book reviews
 - Access circulation reports
 
 ### Admins
@@ -83,6 +90,7 @@ library-management-system/
 - Manage users and roles
 - Configure system loan and fine settings
 - Review notification activity
+- Send test emails, overdue reminders, and role-targeted announcements
 - Access institution-level dashboard analytics
 
 ## Backend Overview
@@ -94,6 +102,8 @@ The backend exposes REST APIs under `/api` and handles:
 - Catalog and review management
 - Borrow, renew, return, and reservation workflows
 - Fine calculation and tracking
+- SMTP email delivery, logging, password reset, announcements, and overdue reminders
+- Razorpay order creation, payment verification, and webhook reconciliation
 - Staff/admin dashboard reporting
 
 Main backend modules:
@@ -103,10 +113,11 @@ Main backend modules:
 - `controllers/`: request/response layer
 - `routes/`: API route definitions
 
-## Upcoming Features
+## Implemented Integrations
 
-- **Email notifications** via SMTP (borrow confirmations, reservation alerts, etc.)
-- Input validation using Zod schemas
+- **SMTP email notifications** for welcome emails, password resets, borrow confirmations, return acknowledgements, reservation-ready alerts, overdue reminders, payment receipts, admin test emails, and announcements
+- **Razorpay payments** for online fine settlement with signature verification and webhook reconciliation
+- **Zod request validation** across auth, books, borrows, reservations, fines, payments, notifications, and settings endpoints
 
 ## Frontend Overview
 
@@ -165,6 +176,11 @@ Important values:
 - `MONGODB_URI` — MongoDB Atlas connection string
 - `JWT_SECRET` — secret key for signing tokens (minimum 32 characters)
 - `CLIENT_URL` — frontend URL(s) for CORS (comma-separated for multiple origins)
+- `SMTP_HOST` — SMTP server hostname
+- `SMTP_PORT` — SMTP port, usually `465` or `587`
+- `SMTP_USER` — authenticated SMTP username
+- `SMTP_PASS` — authenticated SMTP password
+- `SMTP_FROM` or `EMAIL_FROM` — sender address used by notification emails
 - `RAZORPAY_KEY_ID` — Razorpay key id for fine payments
 - `RAZORPAY_KEY_SECRET` — Razorpay key secret for order creation and payment verification
 - `RAZORPAY_WEBHOOK_SECRET` — Razorpay webhook secret used to validate webhook signatures
@@ -215,8 +231,8 @@ Main route groups:
 
 - Fine payments are integrated through Razorpay Checkout.
 - For test-mode card payments, `4100 2800 0000 1007` is a working test card for this project.
-- Use any future expiry date and any CVV, then complete the mock OTP step in Razorpay test mode.
-- Configure the webhook URL as `https://library-management-system-6ftt.onrender.com/api/payments/razorpay/webhook`.
+- Use any future expiry date and any CVV, then complete the mock step in Razorpay test mode.
+- Configured this webhook URL as `https://library-management-system-6ftt.onrender.com/api/payments/razorpay/webhook`.
 
 ### Netlify Frontend
 
@@ -257,8 +273,29 @@ Verified locally:
 - `npm run build --workspace server`
 - `npm audit --omit=dev`
 
+## Final Audit Notes
+
+Covered from `task.md`:
+
+- Book inventory CRUD, search, filtering, and catalog views
+- Borrowing, returns, renewals, reservation queue handling, and late-fee calculation
+- Role-based authentication, password reset, and password change
+- User reviews and staff/admin review removal
+- Reports and dashboards for member, staff, and admin views
+- Email service integration for user and admin workflows
+- Payment integration for fine settlement
+
+Partially covered:
+
+- Overdue notifications are implemented through admin-triggered reminder dispatch from the audit panel; there is no background scheduler/cron runner in this repository yet
+
+Not implemented as a separate feature area:
+
+- Non-email in-app announcement center beyond the notification log/history already shown in the dashboard UI
+
 ## Notes
 
 - The book seed script is idempotent by ISBN — it updates metadata without resetting circulation state.
 - The codebase is structured for incremental extension (audit logs, cron jobs, exports, barcode tracking).
-- Payment and email integrations are planned and will be added next.
+- For reliable email deliverability, keep `SMTP_FROM` aligned with the authenticated SMTP domain.
+- Local Razorpay order creation is intentionally treated as disabled when placeholder keys are present.

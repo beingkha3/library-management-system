@@ -2,6 +2,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
+import { authApi } from '../api/services';
 import { Field, PrimaryButton, SecondaryButton, inputClassName } from '../components/FormFields';
 import { LogoLockup } from '../components/LogoLockup';
 import { useAuth } from '../hooks/useAuth';
@@ -44,6 +45,7 @@ export const AuthPage = ({ mode }) => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const copy = authCopy[mode];
 
@@ -63,6 +65,7 @@ export const AuthPage = ({ mode }) => {
     event.preventDefault();
     setSubmitting(true);
     setError('');
+    setMessage('');
 
     try {
       let nextAuth;
@@ -76,6 +79,27 @@ export const AuthPage = ({ mode }) => {
       navigate(location.state?.from || roleLandingMap[nextAuth.user.role] || '/app');
     } catch (err) {
       setError(err.message || 'Unable to continue');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!form.email) {
+      setError('Enter your email address first so we know where to send the reset link.');
+      setMessage('');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+    setMessage('');
+
+    try {
+      await authApi.forgotPassword({ email: form.email });
+      setMessage('If the account exists, a password reset link has been sent to that email address.');
+    } catch (err) {
+      setError(err.message || 'Unable to send reset link');
     } finally {
       setSubmitting(false);
     }
@@ -164,6 +188,7 @@ export const AuthPage = ({ mode }) => {
               ) : null}
 
               {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+              {message ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</p> : null}
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 <PrimaryButton type="submit" disabled={submitting} className="flex-1">
@@ -181,7 +206,11 @@ export const AuthPage = ({ mode }) => {
                     {copy.alternateText}
                   </Link>
                 </p>
-                {mode === 'login' ? <button type="button" className="font-semibold text-academy-700">Forgot password</button> : null}
+                {mode === 'login' ? (
+                  <button type="button" onClick={handleForgotPassword} className="font-semibold text-academy-700" disabled={submitting}>
+                    Forgot password
+                  </button>
+                ) : null}
               </div>
             </form>
           </div>

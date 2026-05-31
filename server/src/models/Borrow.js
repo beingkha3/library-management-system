@@ -65,5 +65,18 @@ const borrowSchema = new mongoose.Schema(
 borrowSchema.index({ user: 1, status: 1 });
 borrowSchema.index({ book: 1, status: 1 });
 borrowSchema.index({ dueAt: 1, status: 1 });
+borrowSchema.index(
+  { user: 1, book: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      $or: [
+        { status: BORROW_STATUSES.ACTIVE },
+        { status: BORROW_STATUSES.OVERDUE },
+        { status: BORROW_STATUSES.LOST }
+      ]
+    }
+  }
+);
 
 export const Borrow = mongoose.model('Borrow', borrowSchema);

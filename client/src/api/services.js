@@ -5,16 +5,21 @@ const unwrap = (promise) => promise.then((response) => response.data.data);
 export const authApi = {
   register: (payload) => unwrap(api.post('/auth/register', payload)),
   login: (payload) => unwrap(api.post('/auth/login', payload)),
-  me: () => unwrap(api.get('/auth/me'))
+  me: () => unwrap(api.get('/auth/me')),
+  forgotPassword: (payload) => unwrap(api.post('/auth/forgot-password', payload)),
+  resetPassword: (token, payload) => unwrap(api.post(`/auth/reset-password/${token}`, payload)),
+  changePassword: (payload) => unwrap(api.patch('/auth/change-password', payload))
 };
 
 export const bookApi = {
   list: (params) => unwrap(api.get('/books', { params })),
+  listPage: (params) => unwrap(api.get('/books', { params: { ...params, paginate: 'true' } })),
   get: (bookId) => unwrap(api.get(`/books/${bookId}`)),
   create: (payload) => unwrap(api.post('/books', payload)),
   update: (bookId, payload) => unwrap(api.patch(`/books/${bookId}`, payload)),
   archive: (bookId) => unwrap(api.delete(`/books/${bookId}`)),
-  review: (bookId, payload) => unwrap(api.post(`/books/${bookId}/reviews`, payload))
+  review: (bookId, payload) => unwrap(api.post(`/books/${bookId}/reviews`, payload)),
+  deleteReview: (bookId, reviewId) => unwrap(api.delete(`/books/${bookId}/reviews/${reviewId}`))
 };
 
 export const borrowApi = {
@@ -54,10 +59,14 @@ export const dashboardApi = {
 
 export const userApi = {
   list: () => unwrap(api.get('/users')),
+  updateMe: (payload) => unwrap(api.patch('/users/me', payload)),
   update: (userId, payload) => unwrap(api.patch(`/users/${userId}`, payload))
 };
 
 export const notificationApi = {
+  mine: () => unwrap(api.get('/notifications/me')),
   logs: () => unwrap(api.get('/notifications/logs')),
+  sendAnnouncement: (payload) => unwrap(api.post('/notifications/announcements', payload)),
+  sendOverdueReminders: () => unwrap(api.post('/notifications/overdue-reminders')),
   sendTestEmail: (payload) => unwrap(api.post('/notifications/test-email', payload))
 };

@@ -18,7 +18,7 @@ const workQueues = [
 ];
 
 export const StaffDashboardPage = () => {
-  const { data, loading, error } = useAsyncData(() => dashboardApi.staff(), []);
+  const { data, loading, error } = useAsyncData(() => dashboardApi.staff(), [], { pollIntervalMs: 10000 });
 
   if (loading) {
     return <LoadingState label="Loading staff dashboard..." />;

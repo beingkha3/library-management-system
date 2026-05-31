@@ -25,7 +25,7 @@ const loadRazorpayScript = () => {
 
 export const MyFinesPage = () => {
   const [message, setMessage] = useState('');
-  const { data, loading, error, setData } = useAsyncData(() => fineApi.mine(), []);
+  const { data, loading, error, setData } = useAsyncData(() => fineApi.mine(), [], { pollIntervalMs: 10000 });
 
   const handlePay = async (fine) => {
     try {

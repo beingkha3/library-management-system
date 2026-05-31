@@ -1,4 +1,4 @@
-import { CreditCard, Library, RotateCcw, TimerReset } from 'lucide-react';
+import { BookCopy, CreditCard, Library, TimerReset } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -11,15 +11,17 @@ import { ErrorState, LoadingState } from '../components/StateViews';
 import { useAsyncData } from '../hooks/useAsyncData';
 import { currency, date, relativeLoanState } from '../utils/formatters';
 
+const getOutstandingFineAmount = (fine) => (['paid', 'waived'].includes(fine.status) ? 0 : Math.max(fine.amount - fine.paidAmount, 0));
+
 const quickActions = [
   { label: 'Browse catalog', to: '/app/catalog', icon: Library },
-  { label: 'Renew loans', to: '/app/my-loans', icon: RotateCcw },
+  { label: 'My Loans', to: '/app/my-loans', icon: BookCopy },
   { label: 'Pay fines', to: '/app/my-fines', icon: CreditCard },
   { label: 'Track holds', to: '/app/my-reservations', icon: TimerReset }
 ];
 
 export const MemberDashboardPage = () => {
-  const { data, loading, error } = useAsyncData(() => dashboardApi.member(), []);
+  const { data, loading, error } = useAsyncData(() => dashboardApi.member(), [], { pollIntervalMs: 10000 });
 
   const summaryCards = useMemo(() => {
     if (!data) {
@@ -41,8 +43,6 @@ export const MemberDashboardPage = () => {
   if (error) {
     return <ErrorState message={error} />;
   }
-
-  const urgentBorrows = data.activeBorrows.filter((borrow) => borrow.status === 'overdue').slice(0, 3);
 
   return (
     <div className="space-y-5">
@@ -68,26 +68,8 @@ export const MemberDashboardPage = () => {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <SectionCard title="Due soon" description="Books that need attention soon and any current fine balance.">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm text-slate-500">Due soon</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{data.dueSoon.length}</p>
-              <p className="mt-2 text-sm text-slate-500">Books that are closest to the due date.</p>
-            </div>
-            <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm text-amber-700">Overdue books</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{urgentBorrows.length}</p>
-              <p className="mt-2 text-sm text-amber-700">Books that are already overdue.</p>
-            </div>
-            <div className="rounded-[22px] border border-blue-200 bg-blue-50 p-4">
-              <p className="text-sm text-blue-700">Outstanding fines</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{currency(data.summary.totalFines)}</p>
-              <p className="mt-2 text-sm text-blue-700">Fine balance that can be paid online.</p>
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-3">
+        <SectionCard title="Due soon" description="Books that need attention or are already overdue.">
+          <div className="space-y-3">
             {data.dueSoon.length ? (
               data.dueSoon.map((borrow) => (
                 <div key={borrow._id} className="rounded-[22px] border border-slate-200 px-4 py-4">
@@ -132,7 +114,9 @@ export const MemberDashboardPage = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-slate-500">No active reservations.</p>
+                <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">
+                  No active reservations.
+                </p>
               )}
             </div>
           </SectionCard>
@@ -144,7 +128,7 @@ export const MemberDashboardPage = () => {
                   <div key={fine._id} className="rounded-[22px] border border-slate-200 px-4 py-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="font-medium text-slate-900">{currency(Math.max(fine.amount - fine.paidAmount, 0))}</p>
+                        <p className="font-medium text-slate-900">{currency(getOutstandingFineAmount(fine))}</p>
                         <p className="text-sm text-slate-500">Reason: {fine.reason}</p>
                       </div>
                       <StatusPill value={fine.status} />
@@ -152,7 +136,9 @@ export const MemberDashboardPage = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-slate-500">No fine history yet.</p>
+                <p className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">
+                  No fine history yet.
+                </p>
               )}
             </div>
           </SectionCard>

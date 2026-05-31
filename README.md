@@ -1,24 +1,25 @@
 # Library Management System
 
-A production-style MERN web application for managing books, borrowing, reservations, overdue fines, notifications, and role-based library operations.
+A production-style MERN web application for managing books, borrowing, reservations, overdue fines, and role-based library operations. Built for academic library workflows with member, librarian, and admin portals.
 
 ## Highlights
 
 - Member, librarian, and admin role flows
 - JWT authentication and route protection
-- Book inventory and catalog browsing
+- Book inventory and catalog browsing with search
 - Borrowing, renewals, returns, and reservation queue management
-- Overdue fine calculation and Razorpay fine payment flow
-- Email notification service using SMTP via Nodemailer
+- Overdue fine calculation and tracking
+- Email notifications via SMTP for account, circulation, reservation, and admin workflows
+- Razorpay-based fine payment flow with server-side verification and webhook support
 - Analytics dashboards and reports for staff and administrators
-- Responsive React + Tailwind academic dashboard UI
-- Deployment-ready split architecture for Netlify, Render, and MongoDB Atlas
+- Responsive React + Tailwind UI
+- Deployed on Netlify (frontend), Render (backend), MongoDB Atlas (database)
 
 ## Tech Stack
 
-- Frontend: React, React Router, Vite, TailwindCSS, Axios
-- Backend: Node.js, Express, MongoDB, Mongoose, JWT, Nodemailer, Razorpay
-- Deployment: Netlify (frontend), Render (backend), MongoDB Atlas (database)
+- **Frontend:** React, React Router, Vite, TailwindCSS, Axios
+- **Backend:** Node.js, Express, MongoDB, Mongoose, JWT
+- **Deployment:** Netlify (frontend), Render (backend), MongoDB Atlas (database)
 
 ## Project Structure
 
@@ -62,28 +63,34 @@ library-management-system/
 ### Members
 
 - Register and log in
-- Browse and search books
+- Forgot password and reset password by email
+- Browse and search the book catalog
 - Borrow available books
-- Reserve unavailable books
+- Reserve books currently on loan
 - Track due dates and active loans
-- Renew active loans when allowed
-- View and pay fines
+- Renew active loans when eligible
+- View outstanding fines
+- Pay fines online with Razorpay Checkout
 - Add reviews and ratings
+- View notification history
+- Update profile details and change password
 
 ### Librarians
 
-- Add and archive books
+- Add, update, and archive books
 - Manage copies and availability
 - Issue books to members
 - Process returns
 - Review reservations and fines
+- Moderate book reviews
 - Access circulation reports
 
 ### Admins
 
 - Manage users and roles
-- Adjust system loan and fine settings
+- Configure system loan and fine settings
 - Review notification activity
+- Send test emails, overdue reminders, and role-targeted announcements
 - Access institution-level dashboard analytics
 
 ## Backend Overview
@@ -94,17 +101,23 @@ The backend exposes REST APIs under `/api` and handles:
 - Role-based authorization
 - Catalog and review management
 - Borrow, renew, return, and reservation workflows
-- Fine calculation and reconciliation
-- Razorpay order creation and payment verification
-- SMTP-backed email notifications
+- Fine calculation and tracking
+- SMTP email delivery, logging, password reset, announcements, and overdue reminders
+- Razorpay order creation, payment verification, and webhook reconciliation
 - Staff/admin dashboard reporting
 
 Main backend modules:
 
-- `models/`: Mongoose schemas for users, books, borrows, reservations, fines, payments, reviews, notifications, and settings
-- `services/`: business logic for auth, books, borrows, reservations, fines, payments, settings, notifications, and reports
+- `models/`: Mongoose schemas for users, books, borrows, reservations, fines, reviews, and settings
+- `services/`: business logic for auth, books, borrows, reservations, fines, settings, and reports
 - `controllers/`: request/response layer
 - `routes/`: API route definitions
+
+## Implemented Integrations
+
+- **SMTP email notifications** for welcome emails, password resets, borrow confirmations, return acknowledgements, reservation-ready alerts, overdue reminders, payment receipts, admin test emails, and announcements
+- **Razorpay payments** for online fine settlement with signature verification and webhook reconciliation
+- **Zod request validation** across auth, books, borrows, reservations, fines, payments, notifications, and settings endpoints
 
 ## Frontend Overview
 
@@ -160,19 +173,19 @@ See `server/.env.example`.
 
 Important values:
 
-- `MONGODB_URI`
-- `JWT_SECRET`
-- `CLIENT_URL`
-- `RAZORPAY_KEY_ID`
-- `RAZORPAY_KEY_SECRET`
-- `RAZORPAY_WEBHOOK_SECRET`
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `SMTP_FROM`
-- `ADMIN_EMAIL`
-- `ADMIN_PASSWORD`
+- `MONGODB_URI` — MongoDB Atlas connection string
+- `JWT_SECRET` — secret key for signing tokens (minimum 32 characters)
+- `CLIENT_URL` — frontend URL(s) for CORS (comma-separated for multiple origins)
+- `SMTP_HOST` — SMTP server hostname
+- `SMTP_PORT` — SMTP port, usually `465` or `587`
+- `SMTP_USER` — authenticated SMTP username
+- `SMTP_PASS` — authenticated SMTP password
+- `SMTP_FROM` or `EMAIL_FROM` — sender address used by notification emails
+- `RAZORPAY_KEY_ID` — Razorpay key id for fine payments
+- `RAZORPAY_KEY_SECRET` — Razorpay key secret for order creation and payment verification
+- `RAZORPAY_WEBHOOK_SECRET` — Razorpay webhook secret used to validate webhook signatures
+- `ADMIN_EMAIL` — auto-seeded admin account email
+- `ADMIN_PASSWORD` — auto-seeded admin account password
 
 ### Client
 
@@ -197,35 +210,6 @@ Main route groups:
 - `/api/notifications`
 - `/api/health`
 
-## Razorpay Flow
-
-1. Member opens fines page
-2. Frontend requests `/api/payments/razorpay/order`
-3. Backend creates Razorpay order using outstanding fine amount
-4. Frontend opens Razorpay checkout
-5. Backend verifies signature through `/api/payments/razorpay/verify`
-6. Optional webhook endpoint `/api/payments/razorpay/webhook` supports deployment reconciliation
-7. Fine status and user balance are updated only after server verification
-
-## Email Flow
-
-The backend uses Nodemailer with SMTP credentials.
-
-Recommended providers:
-
-- Brevo for production
-- Mailtrap for testing
-- Gmail app password for simple development setups
-
-Email notifications are used for:
-
-- Welcome messages
-- Borrow confirmations
-- Return confirmations
-- Reservation ready alerts
-- Fine payment receipts
-- SMTP test dispatch from admin dashboard
-
 ## Deployment
 
 ### MongoDB Atlas
@@ -243,6 +227,13 @@ Email notifications are used for:
 - Add all backend environment variables
 - Set `CLIENT_URL` to your Netlify frontend URL
 
+### Razorpay Test Hint
+
+- Fine payments are integrated through Razorpay Checkout.
+- For test-mode card payments, `4100 2800 0000 1007` is a working test card for this project.
+- Use any future expiry date and any CVV, then complete the mock step in Razorpay test mode.
+- Configured this webhook URL as `https://library-management-system-6ftt.onrender.com/api/payments/razorpay/webhook`.
+
 ### Netlify Frontend
 
 - Connect the repository and point the base directory to `library-management-system/client`
@@ -259,6 +250,21 @@ Email notifications are used for:
 
 If `ADMIN_EMAIL` and `ADMIN_PASSWORD` are set in the backend environment, the server seeds a default admin account on startup if it does not already exist.
 
+To seed the backend catalog with a starter library collection:
+
+```bash
+npm run seed:books --workspace server
+```
+
+Useful checks:
+
+```bash
+npm run seed:books --workspace server -- --validate-only
+npm run seed:books --workspace server -- --dry-run
+```
+
+The book seed is idempotent by ISBN. Existing books keep their current copy counts and circulation state; the script only refreshes metadata such as title, authors, category, publisher, and shelf location.
+
 ## Build Verification
 
 Verified locally:
@@ -267,8 +273,29 @@ Verified locally:
 - `npm run build --workspace server`
 - `npm audit --omit=dev`
 
+## Final Audit Notes
+
+Covered from `task.md`:
+
+- Book inventory CRUD, search, filtering, and catalog views
+- Borrowing, returns, renewals, reservation queue handling, and late-fee calculation
+- Role-based authentication, password reset, and password change
+- User reviews and staff/admin review removal
+- Reports and dashboards for member, staff, and admin views
+- Email service integration for user and admin workflows
+- Payment integration for fine settlement
+
+Partially covered:
+
+- Overdue notifications are implemented through admin-triggered reminder dispatch from the audit panel; there is no background scheduler/cron runner in this repository yet
+
+Not implemented as a separate feature area:
+
+- Non-email in-app announcement center beyond the notification log/history already shown in the dashboard UI
+
 ## Notes
 
-- Payments are server-verified; the frontend does not trust payment success alone.
-- Email failures are logged and do not block the underlying library action.
-- The current implementation is API-first and structured for incremental extension such as audit logs, cron jobs, exports, and copy-level barcode tracking.
+- The book seed script is idempotent by ISBN — it updates metadata without resetting circulation state.
+- The codebase is structured for incremental extension (audit logs, cron jobs, exports, barcode tracking).
+- For reliable email deliverability, keep `SMTP_FROM` aligned with the authenticated SMTP domain.
+- Local Razorpay order creation is intentionally treated as disabled when placeholder keys are present.

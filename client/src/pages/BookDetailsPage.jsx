@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { apiBaseUrl } from '../api/http';
 import { bookApi, borrowApi, reservationApi } from '../api/services';
+import { Breadcrumbs } from '../components/Breadcrumbs';
 import { Field, PrimaryButton, SecondaryButton, inputClassName } from '../components/FormFields';
 import { PageHeader } from '../components/PageHeader';
 import { SectionCard } from '../components/SectionCard';
@@ -16,17 +17,29 @@ import { date } from '../utils/formatters';
 export const BookDetailsPage = () => {
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const [review, setReview] = useState({ rating: 5, comment: '' });
   const [message, setMessage] = useState('');
+  const [authPrompt, setAuthPrompt] = useState(null);
   const { data, error, loading, setData } = useAsyncData(() => bookApi.get(id), [id]);
   const isPublicRoute = location.pathname.startsWith('/books/');
   const isBackendUnavailable = Boolean(error?.includes('Unable to connect to the server'));
   const sampleBook = useMemo(() => sampleBooks.find((book) => book._id === id) || sampleBooks[0], [id]);
+  const dashboardPath = isAuthenticated ? { member: '/app', librarian: '/staff', admin: '/admin' }[user?.role] || '/app' : '/';
+
+  const showAuthPrompt = (action) => {
+    setMessage('');
+    setAuthPrompt(action);
+  };
+
+  const navigateToAuth = (path) => {
+    navigate(path, { state: { from: location.pathname } });
+  };
 
   const handleBorrow = async () => {
     if (!isAuthenticated) {
-      setMessage('Please sign in to borrow books.');
+      showAuthPrompt('borrow');
       return;
     }
 
@@ -46,7 +59,7 @@ export const BookDetailsPage = () => {
 
   const handleReserve = async () => {
     if (!isAuthenticated) {
-      setMessage('Please sign in to reserve books.');
+      showAuthPrompt('reserve');
       return;
     }
 
@@ -67,7 +80,7 @@ export const BookDetailsPage = () => {
     event.preventDefault();
 
     if (!isAuthenticated) {
-      setMessage('Please sign in to review books.');
+      showAuthPrompt('review');
       return;
     }
 
@@ -86,6 +99,16 @@ export const BookDetailsPage = () => {
     }
   };
 
+  const handleDeleteReview = async (reviewId) => {
+    try {
+      const nextData = await bookApi.deleteReview(id, reviewId);
+      setData(nextData);
+      setMessage('Review removed successfully.');
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+
   if (loading) {
     return <LoadingState label="Loading book details..." />;
   }
@@ -96,9 +119,11 @@ export const BookDetailsPage = () => {
 
   const book = isBackendUnavailable ? sampleBook : data.book;
   const reviews = isBackendUnavailable ? [] : data.reviews;
+  const authPromptAction = authPrompt === 'reserve' ? 'reserve this title' : authPrompt === 'review' ? 'write a review' : 'borrow this book';
 
   return (
     <div className="space-y-6">
+      {isPublicRoute ? <Breadcrumbs items={[{ label: 'Dashboard', to: dashboardPath }, { label: 'Browse catalog', to: '/books' }, { label: book.title }]} /> : null}
       {isBackendUnavailable ? <BackendUnavailableState apiUrl={apiBaseUrl} action={<p className="text-sm text-amber-800">Showing sample book details while the server is unavailable.</p>} /> : null}
       <PageHeader
         eyebrow={book.category}
@@ -114,11 +139,25 @@ export const BookDetailsPage = () => {
         }
       />
       {message ? <p className="rounded-2xl bg-academy-100 px-4 py-3 text-sm text-academy-700">{message}</p> : null}
-      {isPublicRoute ? (
-        <div>
-          <Link to="/books" className="text-sm font-semibold text-academy-700">
-            Back to catalog
-          </Link>
+      {authPrompt ? (
+        <div className="rounded-[24px] border border-academy-100 bg-white px-5 py-4 shadow-card">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold text-slate-900">Sign in to {authPromptAction}</p>
+              <p className="mt-1 text-sm text-slate-500">Use your library account to continue, or create a member account if you do not have one yet.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <PrimaryButton type="button" onClick={() => navigateToAuth('/login')}>
+                Sign in
+              </PrimaryButton>
+              <SecondaryButton type="button" onClick={() => navigateToAuth('/register')}>
+                Create account
+              </SecondaryButton>
+              <SecondaryButton type="button" onClick={() => setAuthPrompt(null)}>
+                Not now
+              </SecondaryButton>
+            </div>
+          </div>
         </div>
       ) : null}
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -163,7 +202,14 @@ export const BookDetailsPage = () => {
                       <p className="font-medium text-slate-900">{item.user?.name}</p>
                       <p className="text-sm text-slate-500">{date(item.createdAt)}</p>
                     </div>
-                    <StatusPill value={item.user?.role} />
+                    <div className="flex items-center gap-2">
+                      <StatusPill value={item.user?.role} />
+                      {['librarian', 'admin'].includes(user?.role) ? (
+                        <SecondaryButton type="button" onClick={() => handleDeleteReview(item._id)}>
+                          Remove
+                        </SecondaryButton>
+                      ) : null}
+                    </div>
                   </div>
                   <p className="mt-3 text-sm text-slate-600">{item.comment || 'No comment provided.'}</p>
                   <p className="mt-2 text-sm font-medium text-academy-700">Rating: {item.rating}/5</p>
@@ -200,7 +246,15 @@ export const BookDetailsPage = () => {
             </form>
           ) : (
             <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-              Sign in to borrow this book, reserve it, or write a review.
+              <p>Sign in to borrow this book, reserve it, or write a review.</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <PrimaryButton type="button" onClick={() => navigateToAuth('/login')}>
+                  Sign in
+                </PrimaryButton>
+                <SecondaryButton type="button" onClick={() => navigateToAuth('/register')}>
+                  Create account
+                </SecondaryButton>
+              </div>
             </div>
           )}
         </SectionCard>

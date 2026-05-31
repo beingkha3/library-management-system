@@ -5,19 +5,22 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "build": "node -e \"console.log('Server build step not required')\""
+    "build": "node -e \"console.log('Server build step not required')\"",
+    "seed:books": "node src/scripts/seedBooks.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.0",
     "morgan": "^1.10.0",
     "nodemailer": "^8.0.8",
-    "razorpay": "^2.9.5"
+    "razorpay": "^2.9.5",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

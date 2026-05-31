@@ -9,7 +9,9 @@ import {
   patchSettingsController
 } from '../controllers/dashboardController.js';
 import { protect, requireRoles } from '../middleware/authMiddleware.js';
+import { validateRequest } from '../middleware/validateRequest.js';
 import { ROLES } from '../utils/constants.js';
+import { dashboardSchemas } from '../validations/requestSchemas.js';
 
 const router = Router();
 
@@ -19,6 +21,6 @@ router.get('/staff', requireRoles(ROLES.LIBRARIAN, ROLES.ADMIN), getStaffDashboa
 router.get('/admin', requireRoles(ROLES.ADMIN), getAdminDashboardController);
 router.get('/reports', requireRoles(ROLES.LIBRARIAN, ROLES.ADMIN), getReportsController);
 router.get('/settings', requireRoles(ROLES.ADMIN), getSettingsController);
-router.patch('/settings', requireRoles(ROLES.ADMIN), patchSettingsController);
+router.patch('/settings', requireRoles(ROLES.ADMIN), validateRequest(dashboardSchemas.settings), patchSettingsController);
 
 export default router;

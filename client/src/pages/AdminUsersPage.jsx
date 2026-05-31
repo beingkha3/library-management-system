@@ -4,17 +4,18 @@ import { useMemo, useState } from 'react';
 import { userApi } from '../api/services';
 import { DataTable } from '../components/DataTable';
 import { PageHeader } from '../components/PageHeader';
-import { PrimaryButton, SecondaryButton } from '../components/FormFields';
+import { SecondaryButton } from '../components/FormFields';
 import { SectionCard } from '../components/SectionCard';
 import { StatusPill } from '../components/StatusPill';
 import { ErrorState, LoadingState } from '../components/StateViews';
 import { useAsyncData } from '../hooks/useAsyncData';
+import { roleLabel } from '../utils/formatters';
 
-const nextRoleMap = {
-  member: 'librarian',
-  librarian: 'admin',
-  admin: 'member'
-};
+const roleOptions = [
+  { value: 'member', label: roleLabel('member') },
+  { value: 'librarian', label: roleLabel('librarian') },
+  { value: 'admin', label: roleLabel('admin') }
+];
 
 export const AdminUsersPage = () => {
   const [message, setMessage] = useState('');
@@ -32,9 +33,12 @@ export const AdminUsersPage = () => {
 
   const refreshUsers = async () => setData(await userApi.list());
 
-  const handlePromote = async (row) => {
+  const handleRoleChange = async (row, nextRole) => {
+    if (row.role === nextRole) {
+      return;
+    }
+
     try {
-      const nextRole = nextRoleMap[row.role];
       await userApi.update(row._id, { role: nextRole });
       setMessage(`Role updated to ${nextRole}.`);
       await refreshUsers();
@@ -139,10 +143,26 @@ export const AdminUsersPage = () => {
                 key: 'actions',
                 label: 'Actions',
                 render: (row) => (
-                  <div className="flex flex-wrap gap-2">
-                    <PrimaryButton type="button" onClick={() => handlePromote(row)}>
-                      Change role
-                    </PrimaryButton>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <select
+                        aria-label={`Change role for ${row.name}`}
+                        value={row.role}
+                        onChange={(event) => handleRoleChange(row, event.target.value)}
+                        className="cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 pr-8 text-sm font-medium text-slate-700 outline-none transition hover:border-academy-300 hover:text-academy-700 focus:border-academy-500 focus:ring-2 focus:ring-academy-100"
+                      >
+                        {roleOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400">
+                        <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+                          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                    </div>
                     <SecondaryButton type="button" onClick={() => handleStatusToggle(row)}>
                       {row.status === 'active' ? 'Suspend' : 'Reactivate'}
                     </SecondaryButton>

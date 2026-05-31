@@ -12,6 +12,8 @@ import { sendTemplateEmail } from './notificationService.js';
 
 let razorpayClient;
 
+const RECONCILIATION_LOCK_MS = 5 * 60 * 1000;
+
 const getRazorpayClient = () => {
   if (!isRazorpayEnabled) {
     throw new AppError('Razorpay is not configured on the server', 500);
@@ -27,6 +29,81 @@ const getRazorpayClient = () => {
   return razorpayClient;
 };
 
+const timingSafeCompare = (left, right) => {
+  const leftBuffer = Buffer.from(left || '', 'utf8');
+  const rightBuffer = Buffer.from(right || '', 'utf8');
+
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
+
+const isFineClosed = (fine) => [FINE_STATUSES.PAID, FINE_STATUSES.WAIVED].includes(fine.status);
+
+const sendPaymentReceipt = async ({ payment, user, reference }) => {
+  await sendTemplateEmail({
+    user,
+    subject: 'Fine payment received',
+    preheader: 'Your payment was processed successfully.',
+    bodyLines: [
+      `Hi ${user.name},`,
+      `We received your fine payment of INR ${payment.amount}.`,
+      `Reference: ${reference}`
+    ],
+    templateKey: 'fine-payment',
+    type: 'fine_payment'
+  });
+};
+
+const reconcileCapturedPayment = async ({ payment, fine, user, reference }) => {
+  const lockBefore = new Date(Date.now() - RECONCILIATION_LOCK_MS);
+  const claimedPayment = await Payment.findOneAndUpdate(
+    {
+      _id: payment._id,
+      status: PAYMENT_STATUSES.CAPTURED,
+      reconciledAt: { $exists: false },
+      $or: [
+        { reconciliationStartedAt: { $exists: false } },
+        { reconciliationStartedAt: { $lt: lockBefore } }
+      ]
+    },
+    { $set: { reconciliationStartedAt: new Date() } },
+    { new: true }
+  );
+
+  if (!claimedPayment) {
+    return false;
+  }
+
+  try {
+    const outstandingAmount = Math.max(fine.amount - fine.paidAmount, 0);
+    const appliedAmount = fine.status === FINE_STATUSES.WAIVED ? 0 : Math.min(payment.amount, outstandingAmount);
+
+    if (appliedAmount > 0) {
+      fine.paidAmount = Math.min(fine.amount, fine.paidAmount + appliedAmount);
+      fine.status = fine.paidAmount >= fine.amount ? FINE_STATUSES.PAID : FINE_STATUSES.PARTIALLY_PAID;
+      await fine.save();
+    }
+
+    await Payment.findByIdAndUpdate(payment._id, {
+      $set: {
+        appliedAmount,
+        reconciledAt: new Date()
+      },
+      $unset: { reconciliationStartedAt: '' }
+    });
+
+    await recomputeUserFineBalance(user._id);
+
+    if (appliedAmount > 0) {
+      await sendPaymentReceipt({ payment: { ...payment.toObject(), amount: appliedAmount }, user, reference });
+    }
+
+    return true;
+  } catch (error) {
+    await Payment.findByIdAndUpdate(payment._id, { $unset: { reconciliationStartedAt: '' } });
+    throw error;
+  }
+};
+
 export const createFinePaymentOrder = async ({ user, fineId }) => {
   const fine = await Fine.findById(fineId);
 
@@ -38,10 +115,29 @@ export const createFinePaymentOrder = async ({ user, fineId }) => {
     throw new AppError('You can only pay your own fines', 403);
   }
 
+  if (isFineClosed(fine)) {
+    throw new AppError('This fine has already been settled', 400);
+  }
+
   const outstandingAmount = Math.max(fine.amount - fine.paidAmount, 0);
 
   if (outstandingAmount <= 0) {
     throw new AppError('This fine has already been settled', 400);
+  }
+
+  const existingPayment = await Payment.findOne({
+    user: user._id,
+    fine: fine._id,
+    status: PAYMENT_STATUSES.CREATED,
+    amount: outstandingAmount
+  }).sort({ createdAt: -1 });
+
+  if (existingPayment?.gatewayPayload?.id) {
+    return {
+      order: existingPayment.gatewayPayload,
+      payment: existingPayment,
+      keyId: env.razorpayKeyId
+    };
   }
 
   const client = getRazorpayClient();
@@ -56,16 +152,41 @@ export const createFinePaymentOrder = async ({ user, fineId }) => {
     }
   });
 
-  const payment = await Payment.create({
-    user: user._id,
-    fine: fine._id,
-    razorpayOrderId: order.id,
-    amount: outstandingAmount,
-    currency: fine.currency,
-    receiptNo,
-    status: PAYMENT_STATUSES.CREATED,
-    gatewayPayload: order
-  });
+  let payment;
+
+  try {
+    payment = await Payment.create({
+      user: user._id,
+      fine: fine._id,
+      razorpayOrderId: order.id,
+      amount: outstandingAmount,
+      currency: fine.currency,
+      receiptNo,
+      status: PAYMENT_STATUSES.CREATED,
+      gatewayPayload: order
+    });
+  } catch (error) {
+    if (error?.code !== 11000) {
+      throw error;
+    }
+
+    const duplicatePayment = await Payment.findOne({
+      user: user._id,
+      fine: fine._id,
+      status: PAYMENT_STATUSES.CREATED,
+      amount: outstandingAmount
+    }).sort({ createdAt: -1 });
+
+    if (duplicatePayment?.gatewayPayload?.id) {
+      return {
+        order: duplicatePayment.gatewayPayload,
+        payment: duplicatePayment,
+        keyId: env.razorpayKeyId
+      };
+    }
+
+    throw error;
+  }
 
   return {
     order,
@@ -91,49 +212,53 @@ export const verifyFinePayment = async ({ user, fineId, razorpayOrderId, razorpa
     throw new AppError('Fine not found', 404);
   }
 
-  if (payment.status === PAYMENT_STATUSES.CAPTURED) {
-    if (payment.razorpayPaymentId !== razorpayPaymentId) {
-      throw new AppError('This payment order has already been captured', 409);
-    }
-
-    return { payment, fine };
-  }
-
   const digest = crypto
     .createHmac('sha256', env.razorpayKeySecret)
     .update(`${razorpayOrderId}|${razorpayPaymentId}`)
     .digest('hex');
 
-  if (digest !== razorpaySignature) {
+  if (!timingSafeCompare(digest, razorpaySignature)) {
     throw new AppError('Payment signature verification failed', 400);
   }
 
-  payment.razorpayPaymentId = razorpayPaymentId;
-  payment.razorpaySignature = razorpaySignature;
-  payment.status = PAYMENT_STATUSES.CAPTURED;
-  payment.paidAt = new Date();
-  await payment.save();
+  if (payment.status === PAYMENT_STATUSES.CAPTURED) {
+    if (payment.razorpayPaymentId !== razorpayPaymentId) {
+      throw new AppError('This payment order has already been captured', 409);
+    }
 
-  fine.paidAmount = Math.min(fine.amount, fine.paidAmount + payment.amount);
-  fine.status = fine.paidAmount >= fine.amount ? FINE_STATUSES.PAID : FINE_STATUSES.PARTIALLY_PAID;
-  await fine.save();
+    await reconcileCapturedPayment({ payment, fine, user: payment.user, reference: razorpayPaymentId });
+    return { payment, fine };
+  }
 
-  await recomputeUserFineBalance(user._id);
+  const capturedPayment = await Payment.findOneAndUpdate(
+    { _id: payment._id, status: { $ne: PAYMENT_STATUSES.CAPTURED } },
+    {
+      $set: {
+        razorpayPaymentId,
+        razorpaySignature,
+        status: PAYMENT_STATUSES.CAPTURED,
+        paidAt: new Date()
+      }
+    },
+    { new: true }
+  ).populate('user');
 
-  await sendTemplateEmail({
-    user: payment.user,
-    subject: 'Fine payment received',
-    preheader: 'Your payment was processed successfully.',
-    bodyLines: [
-      `Hi ${payment.user.name},`,
-      `We received your fine payment of INR ${payment.amount}.`,
-      `Reference: ${razorpayPaymentId}`
-    ],
-    templateKey: 'fine-payment',
-    type: 'fine_payment'
+  if (!capturedPayment) {
+    const latestPayment = await Payment.findById(payment._id).populate('user');
+    if (latestPayment?.status === PAYMENT_STATUSES.CAPTURED) {
+      await reconcileCapturedPayment({ payment: latestPayment, fine, user: latestPayment.user, reference: razorpayPaymentId });
+    }
+    return { payment: latestPayment, fine };
+  }
+
+  await reconcileCapturedPayment({
+    payment: capturedPayment,
+    fine,
+    user: capturedPayment.user,
+    reference: razorpayPaymentId
   });
 
-  return { payment, fine };
+  return { payment: capturedPayment, fine };
 };
 
 export const listPaymentsForUser = async (userId) =>
@@ -149,7 +274,7 @@ export const handleRazorpayWebhook = async ({ rawBody, signature }) => {
     .update(rawBody)
     .digest('hex');
 
-  if (digest !== signature) {
+  if (!timingSafeCompare(digest, signature)) {
     throw new AppError('Webhook signature verification failed', 400);
   }
 
@@ -168,7 +293,7 @@ export const handleRazorpayWebhook = async ({ rawBody, signature }) => {
     return { acknowledged: true, ignored: true };
   }
 
-  if (payment.status === PAYMENT_STATUSES.CAPTURED) {
+  if (payment.status === PAYMENT_STATUSES.CAPTURED && payment.reconciledAt) {
     return { acknowledged: true, ignored: true };
   }
 
@@ -179,30 +304,47 @@ export const handleRazorpayWebhook = async ({ rawBody, signature }) => {
   }
 
   if (event.event === 'payment.captured' || event.event === 'order.paid') {
-    payment.razorpayPaymentId = paymentEntity?.id || payment.razorpayPaymentId;
-    payment.razorpaySignature = signature;
-    payment.status = PAYMENT_STATUSES.CAPTURED;
-    payment.paidAt = new Date();
-    payment.gatewayPayload = event;
-    await payment.save();
+    if (!paymentEntity?.id) {
+      return { acknowledged: true, ignored: true };
+    }
 
-    fine.paidAmount = Math.min(fine.amount, fine.paidAmount + payment.amount);
-    fine.status = fine.paidAmount >= fine.amount ? FINE_STATUSES.PAID : FINE_STATUSES.PARTIALLY_PAID;
-    await fine.save();
-    await recomputeUserFineBalance(payment.user._id);
+    const capturedPayment = await Payment.findOneAndUpdate(
+      { _id: payment._id, status: { $ne: PAYMENT_STATUSES.CAPTURED } },
+      {
+        $set: {
+          razorpayPaymentId: paymentEntity?.id || payment.razorpayPaymentId,
+          webhookSignature: signature,
+          status: PAYMENT_STATUSES.CAPTURED,
+          paidAt: new Date(),
+          gatewayPayload: event
+        }
+      },
+      { new: true }
+    ).populate('user');
 
-    await sendTemplateEmail({
-      user: payment.user,
-      subject: 'Fine payment received',
-      preheader: 'Your payment was processed successfully.',
-      bodyLines: [
-        `Hi ${payment.user.name},`,
-        `We received your fine payment of INR ${payment.amount}.`,
-        `Reference: ${payment.razorpayPaymentId || payment.razorpayOrderId}`
-      ],
-      templateKey: 'fine-payment',
-      type: 'fine_payment'
-    });
+    const paymentForReconciliation = capturedPayment || (await Payment.findById(payment._id).populate('user'));
+
+    if (paymentForReconciliation?.status === PAYMENT_STATUSES.CAPTURED) {
+      await reconcileCapturedPayment({
+        payment: paymentForReconciliation,
+        fine,
+        user: paymentForReconciliation.user,
+        reference: paymentForReconciliation.razorpayPaymentId || paymentForReconciliation.razorpayOrderId
+      });
+    }
+  }
+
+  if (event.event === 'payment.failed') {
+    await Payment.findOneAndUpdate(
+      { _id: payment._id, status: PAYMENT_STATUSES.CREATED },
+      {
+        $set: {
+          status: PAYMENT_STATUSES.FAILED,
+          razorpayPaymentId: paymentEntity?.id || payment.razorpayPaymentId,
+          gatewayPayload: event
+        }
+      }
+    );
   }
 
   return { acknowledged: true };

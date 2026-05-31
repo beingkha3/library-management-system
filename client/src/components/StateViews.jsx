@@ -1,6 +1,7 @@
 export const LoadingState = ({ label = 'Loading data...' }) => (
-  <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500 shadow-card">
-    {label}
+  <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-card">
+    <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-academy-500" />
+    <p className="text-sm text-slate-500">{label}</p>
   </div>
 );
 
@@ -20,11 +21,18 @@ export const ErrorState = ({ message, onRetry }) => (
   </div>
 );
 
-export const BackendUnavailableState = ({ apiUrl, action }) => (
-  <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-6 shadow-card">
-    <h3 className="text-lg font-semibold text-slate-900">Unable to connect to the server. Please make sure the backend is running.</h3>
-    <p className="mt-2 text-sm leading-6 text-amber-800">Expected API URL: {apiUrl}</p>
-    {action ? <div className="mt-4">{action}</div> : null}
+export const BackendUnavailableState = ({ action }) => (
+  <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-5 shadow-card">
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+        <span className="text-base font-bold">!</span>
+      </div>
+      <div>
+        <h3 className="font-semibold text-slate-900">Server unavailable</h3>
+        <p className="mt-1 text-sm leading-6 text-amber-800">Could not connect to the library server. Showing sample data.</p>
+        {action ? <div className="mt-3">{action}</div> : null}
+      </div>
+    </div>
   </div>
 );
 

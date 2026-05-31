@@ -16,6 +16,7 @@ import { MyLoansPage } from './pages/MyLoansPage';
 import { MyReservationsPage } from './pages/MyReservationsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { StaffBooksPage } from './pages/StaffBooksPage';
 import { StaffDashboardPage } from './pages/StaffDashboardPage';
 import { StaffFinesPage } from './pages/StaffFinesPage';
@@ -34,6 +35,7 @@ export default function App() {
       <Route path="/books/:id" element={<BookDetailsPage />} />
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
+      <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
       <Route element={<RequireAuth />}>

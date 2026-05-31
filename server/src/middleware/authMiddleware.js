@@ -23,6 +23,18 @@ export const protect = async (req, _res, next) => {
       return next(new AppError('Account is suspended', 403));
     }
 
+    if ((user.tokenVersion || 0) !== (decoded.tokenVersion || 0)) {
+      return next(new AppError('Session is no longer valid. Please sign in again.', 401));
+    }
+
+    if (
+      user.passwordChangedAt &&
+      decoded.iat &&
+      Math.floor(user.passwordChangedAt.getTime() / 1000) > decoded.iat
+    ) {
+      return next(new AppError('Password was changed recently. Please sign in again.', 401));
+    }
+
     req.user = user;
     next();
   } catch (_error) {

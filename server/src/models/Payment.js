@@ -30,6 +30,10 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    webhookSignature: {
+      type: String,
+      default: ''
+    },
     amount: {
       type: Number,
       required: true,
@@ -44,7 +48,14 @@ const paymentSchema = new mongoose.Schema(
       enum: Object.values(PAYMENT_STATUSES),
       default: PAYMENT_STATUSES.CREATED
     },
+    appliedAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     paidAt: Date,
+    reconciliationStartedAt: Date,
+    reconciledAt: Date,
     receiptNo: {
       type: String,
       default: ''
@@ -61,5 +72,22 @@ const paymentSchema = new mongoose.Schema(
 
 paymentSchema.index({ fine: 1, status: 1 });
 paymentSchema.index({ user: 1, createdAt: -1 });
+paymentSchema.index(
+  { user: 1, fine: 1, status: 1, amount: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: PAYMENT_STATUSES.CREATED }
+  }
+);
+paymentSchema.index({ razorpayOrderId: 1 }, { unique: true });
+paymentSchema.index(
+  { razorpayPaymentId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      razorpayPaymentId: { $exists: true, $gt: '' }
+    }
+  }
+);
 
 export const Payment = mongoose.model('Payment', paymentSchema);

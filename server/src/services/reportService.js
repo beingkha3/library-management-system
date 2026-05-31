@@ -3,8 +3,18 @@ import { Borrow } from '../models/Borrow.js';
 import { Fine } from '../models/Fine.js';
 import { Reservation } from '../models/Reservation.js';
 import { User } from '../models/User.js';
-import { BORROW_STATUSES, ROLES } from '../utils/constants.js';
+import { BORROW_STATUSES, FINE_STATUSES, ROLES } from '../utils/constants.js';
 import { calculateDaysOverdue } from '../utils/dateUtils.js';
+
+const getOutstandingFineAmount = (fine) => {
+  if ([FINE_STATUSES.PAID, FINE_STATUSES.WAIVED].includes(fine.status)) {
+    return 0;
+  }
+
+  return Math.max(fine.amount - fine.paidAmount, 0);
+};
+
+const sumOutstandingFines = (fines) => fines.reduce((sum, fine) => sum + getOutstandingFineAmount(fine), 0);
 
 export const getMemberDashboard = async (userId) => {
   const [activeBorrows, reservations, fines, paymentsDueSoon] = await Promise.all([
@@ -21,7 +31,7 @@ export const getMemberDashboard = async (userId) => {
     summary: {
       activeLoans: activeBorrows.length,
       overdueLoans: activeBorrows.filter((item) => calculateDaysOverdue(item.dueAt) > 0).length,
-      totalFines: fines.reduce((sum, fine) => sum + Math.max(fine.amount - fine.paidAmount, 0), 0),
+      totalFines: sumOutstandingFines(fines),
       activeReservations: reservations.filter((item) => ['queued', 'ready'].includes(item.status)).length
     },
     activeBorrows,
@@ -107,7 +117,7 @@ export const getReports = async () => {
       totalBooks: books.length,
       totalBorrows: borrows.length,
       totalReservations: reservations.length,
-      outstandingFineAmount: fines.reduce((sum, fine) => sum + Math.max(fine.amount - fine.paidAmount, 0), 0)
+      outstandingFineAmount: sumOutstandingFines(fines)
     },
     overdueReport,
     recentBorrows: borrows.slice(0, 10),

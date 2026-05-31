@@ -7,6 +7,7 @@ import dashboardRoutes from './dashboardRoutes.js';
 import fineRoutes from './fineRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
+import { emailHealthCheck } from '../services/notificationService.js';
 import reservationRoutes from './reservationRoutes.js';
 import userRoutes from './userRoutes.js';
 
@@ -14,6 +15,11 @@ const router = Router();
 
 router.get('/health', (_req, res) => {
   res.json({ success: true, message: 'Library API is healthy' });
+});
+
+router.get('/health/email', async (_req, res) => {
+  const result = await emailHealthCheck();
+  res.status(result.ok ? 200 : 503).json(result);
 });
 
 router.use('/auth', authRoutes);

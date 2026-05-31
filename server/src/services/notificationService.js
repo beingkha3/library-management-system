@@ -1,28 +1,45 @@
-import nodemailer from 'nodemailer';
-
 import { env, isEmailEnabled } from '../config/env.js';
 import { NotificationLog } from '../models/NotificationLog.js';
 
-let transporter;
+// Parse "Name <email>" or bare "email" into a Brevo sender object
+const parseSender = (from) => {
+  const match = (from || '').match(/^(.*?)\s*<(.+?)>$/);
+  if (match) return { name: match[1].trim() || 'Library Management', email: match[2].trim() };
+  return { name: 'Library Management', email: (from || 'noreply@kazrotech.com').trim() };
+};
 
-const getTransporter = () => {
-  if (!isEmailEnabled) {
-    return null;
-  }
+const brevoPost = async (path, payload) => {
+  const apiKey = env.brevoApiKey;
+  if (!apiKey) throw new Error('BREVO_API_KEY is not configured');
 
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: env.smtpHost,
-      port: env.smtpPort,
-      secure: env.smtpPort === 465,
-      auth: {
-        user: env.smtpUser,
-        pass: env.smtpPass
-      }
+  return fetch(`https://api.brevo.com/v3${path}`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'api-key': apiKey,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+};
+
+export const emailHealthCheck = async () => {
+  const apiKey = env.brevoApiKey;
+  if (!apiKey) return { ok: false, error: 'BREVO_API_KEY is not configured' };
+
+  try {
+    const res = await fetch('https://api.brevo.com/v3/account', {
+      headers: { accept: 'application/json', 'api-key': apiKey },
     });
+    if (res.ok) {
+      const data = await res.json();
+      return { ok: true, provider: 'brevo', account: data.email };
+    }
+    const body = await res.text();
+    return { ok: false, provider: 'brevo', status: res.status, error: body };
+  } catch (err) {
+    return { ok: false, error: err.message };
   }
-
-  return transporter;
 };
 
 export const sendEmail = async ({ user, to, subject, html, text, templateKey, meta = {}, type }) => {
@@ -31,44 +48,37 @@ export const sendEmail = async ({ user, to, subject, html, text, templateKey, me
     type: type || templateKey || 'general',
     subject,
     templateKey: templateKey || '',
-    meta
+    meta,
   };
 
   if (!isEmailEnabled) {
     await NotificationLog.create({
       ...logPayload,
       status: 'skipped',
-      error: 'Email transport is not configured'
+      error: 'Email transport is not configured',
     });
-
     return { skipped: true };
   }
 
   try {
-    const activeTransporter = getTransporter();
-
-    await activeTransporter.sendMail({
-      from: env.smtpFrom,
-      to,
+    const res = await brevoPost('/smtp/email', {
+      sender: parseSender(env.smtpFrom),
+      to: [{ email: to }],
       subject,
-      html,
-      text
+      htmlContent: html,
+      textContent: text,
     });
 
-    await NotificationLog.create({
-      ...logPayload,
-      status: 'sent',
-      sentAt: new Date()
-    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Brevo API error ${res.status}: ${body}`);
+    }
 
+    await NotificationLog.create({ ...logPayload, status: 'sent', sentAt: new Date() });
     return { sent: true };
   } catch (error) {
-    await NotificationLog.create({
-      ...logPayload,
-      status: 'failed',
-      error: error.message
-    });
-
+    console.error('[notificationService] sendEmail failed:', error.message);
+    await NotificationLog.create({ ...logPayload, status: 'failed', error: error.message });
     return { sent: false, error };
   }
 };
@@ -96,6 +106,6 @@ export const sendTemplateEmail = async ({ user, subject, preheader, bodyLines, t
     text: bodyLines.join('\n'),
     templateKey,
     meta,
-    type
+    type,
   });
 };

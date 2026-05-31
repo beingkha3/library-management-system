@@ -45,10 +45,7 @@ export const env = {
   razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
   razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || '',
   razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
-  smtpHost: process.env.SMTP_HOST || '',
-  smtpPort: parseNumberEnv('SMTP_PORT', 587),
-  smtpUser: process.env.SMTP_USER || '',
-  smtpPass: process.env.SMTP_PASS || '',
+  brevoApiKey: process.env.BREVO_API_KEY || '',
   smtpFrom,
   adminEmail: process.env.ADMIN_EMAIL || '',
   adminPassword: process.env.ADMIN_PASSWORD || ''
@@ -71,5 +68,5 @@ if (isProductionEnv) {
 }
 
 export const isProduction = env.nodeEnv === 'production';
-export const isEmailEnabled = Boolean(env.smtpHost && env.smtpUser && env.smtpPass);
+export const isEmailEnabled = Boolean(env.brevoApiKey);
 export const isRazorpayEnabled = isConfiguredValue(env.razorpayKeyId) && isConfiguredValue(env.razorpayKeySecret);
